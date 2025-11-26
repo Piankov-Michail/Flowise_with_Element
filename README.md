@@ -51,6 +51,20 @@ docker exec -it synapse register_new_matrix_user http://localhost:8008 -c /data/
 ### Identity server URL: smth
 <br>
 
+## Configure Flowise (Example)
+### Launch ollama with cloud model
+```shell
+docker run -d --network=matrix-network -v ollama:/root/.ollama --name ollama ollama/ollama
+```
+```shell
+docker exec -it ollama ollama signin
+```
+```shell
+docker exec -it ollama ollama run gpt-oss:20b-cloud
+```
+### Import this [Chatflow](https://github.com/Piankov-Michail/Flowise_with_Element/blob/main/Example_Chatflow.json)
+<br>
+
 ## Launch [matrix-bot.py](https://github.com/Piankov-Michail/Flowise_with_Element/blob/main/matrix-bot.py)
 ### Make user for bot in Element(Matrix)
 ```
@@ -65,17 +79,4 @@ pip install -r requirements.txt
 ```
 python matrix-bot.py
 ```
-<br>
 
-## Example of Flowise usage:
-### Launch ollama with cloud model
-```shell
-docker run -d --network=matrix-network -v ollama:/root/.ollama --name ollama ollama/ollama
-```
-```shell
-docker exec -it ollama ollama signin
-```
-```shell
-docker exec -it ollama ollama run gpt-oss:20b-cloud
-```
-### Import this [Chatflow](https://github.com/Piankov-Michail/Flowise_with_Element/blob/main/Example_Chatflow.json)
