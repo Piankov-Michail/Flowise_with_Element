@@ -79,4 +79,11 @@ pip install -r requirements.txt
 ```
 python matrix-bot.py
 ```
+<br>
 
+## [DEMO](https://github.com/Piankov-Michail/Flowise_with_Element/blob/main/DEMO.pdf)
+<br>
+
+## Resources:
+* [Synapse](https://github.com/matrix-org/synapse)
+* [Flowise](https://github.com/FlowiseAI/Flowise)
