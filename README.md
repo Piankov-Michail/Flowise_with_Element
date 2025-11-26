@@ -51,4 +51,5 @@ docker exec -it synapse register_new_matrix_user http://localhost:8008 -c /data/
 ### Identity server URL: smth
 <br>
 
-## Launch matrix-bot.py (Maybe not in docker each student create this or auto docker with flowise_url and user_id from .env)
+## Launch matrix-bot.py 
+### Maybe not in docker each student create this or auto docker with flowise_url and user_id from .env
