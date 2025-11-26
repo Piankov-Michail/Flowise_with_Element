@@ -51,7 +51,11 @@ docker exec -it synapse register_new_matrix_user http://localhost:8008 -c /data/
 ### Identity server URL: smth
 <br>
 
-## Launch matrix-bot.py 
+## Launch [matrix-bot.py](https://github.com/Piankov-Michail/Flowise_with_Element/blob/main/matrix-bot.py)
+### Make user for bot in Element(Matrix)
+```
+docker exec -it synapse register_new_matrix_user http://localhost:8008 -c /data/homeserver.yaml
+```
 ### Maybe not in docker each student create this or auto docker with flowise_url and user_id from .env
 ```shell
 python3 -m venv matrix-env
@@ -61,3 +65,17 @@ pip install -r requirements.txt
 ```
 python matrix-bot.py
 ```
+<br>
+
+## Example of Flowise usage:
+### Launch ollama with cloud model
+```shell
+docker run -d --network=matrix-network -v ollama:/root/.ollama --name ollama ollama/ollama
+```
+```shell
+docker exec -it ollama ollama signin
+```
+```shell
+docker exec -it ollama ollama run gpt-oss:20b-cloud
+```
+### Import this [Chatflow](https://github.com/Piankov-Michail/Flowise_with_Element/blob/main/Example_Chatflow.json)
