@@ -12,8 +12,6 @@ services:
       - "8008:8008/tcp"
     volumes:
       - synapse-data:/data
-      - ./homeserver.yaml:/data/homeserver.yaml
-      - ./log_config.yaml:/data/log_config.yaml
     environment:
       - SYNAPSE_SERVER_NAME=localhost
       - SYNAPSE_REPORT_STATS=no
