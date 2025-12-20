@@ -30,4 +30,4 @@ typing_extensions==4.15.0
 unpaddedbase64==2.1.0
 urllib3==2.5.0
 yarl==1.22.0
-SQLAlchemy==2.0.35
+SQLAlchemy==2.0.35asyncpg==0.35.0
