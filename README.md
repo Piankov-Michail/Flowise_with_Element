@@ -87,3 +87,93 @@ python matrix-bot.py
 ## Resources:
 * [Synapse](https://github.com/matrix-org/synapse)
 * [Flowise](https://github.com/FlowiseAI/Flowise)
+
+---
+
+# Matrix Synapse Orchestrator
+
+This project sets up a Matrix Synapse server with an orchestrator service for managing users and bots.
+
+## Services
+
+- **Synapse**: Matrix homeserver running on port 8008
+- **Orchestrator**: Web interface for user and bot management running on port 8001
+- **PostgreSQL**: Database for storing bot and user information
+
+## Prerequisites
+
+- Docker
+- Docker Compose
+
+## Setup
+
+1. Clone this repository
+2. Make sure all configuration files are present:
+   - `homeserver.yaml`
+   - `homeserver.log.config`
+   - `orchestrator.py`
+   - `Dockerfile.orchestrator`
+   - `docker-compose.yml`
+   - `.env`
+
+3. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+## Usage
+
+### Access the Web Interface
+
+Go to `http://localhost:8001` to access the orchestrator web interface.
+
+Default login password: `1111111`
+
+### Create Users
+
+In the "Create User" tab:
+- Enter username
+- Enter password and confirm
+- Check "Admin User" if needed
+- Click "Create User"
+
+### Manage Bots
+
+In the "Manage Bots" tab:
+- Create new bots with Bot User ID, Flowise URL, and password
+- Start/stop/delete existing bots using their passwords or the admin password
+
+## Configuration
+
+### Environment Variables
+
+Edit the `.env` file to customize passwords:
+- `ORCHESTRATOR_WEB_CLIENT_SECRET`: Password to access the web interface
+- `ORCHESTRATOR_ADMIN_PASSWORD`: Admin password for bot operations
+
+### Synapse Configuration
+
+The `homeserver.yaml` includes settings for:
+- Registration enabled
+- No verification required
+- Disabled rate limits
+- SQLite database
+- Media storage configuration
+
+## External Access
+
+The services are configured to be accessible on the local network. You can access them via the machine's external IP address:
+
+- Synapse: `http://<your-ip>:8008`
+- Orchestrator: `http://<your-ip>:8001`
+
+## Stopping the Services
+
+```bash
+docker-compose down
+```
+
+To remove volumes (this will delete all data):
+```bash
+docker-compose down -v
+```

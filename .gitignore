@@ -1,0 +1,19 @@
+```
+# Environment variables
+.env
+.env.*
+
+# Logs
+*.log
+
+# Dependencies
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Docker
+.dockerenv
+```
