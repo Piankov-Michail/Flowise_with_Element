@@ -15,11 +15,6 @@ services:
     environment:
       - SYNAPSE_SERVER_NAME=localhost
       - SYNAPSE_REPORT_STATS=no
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   # Flowise Service
   flowise:
