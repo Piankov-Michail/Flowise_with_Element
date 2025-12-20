@@ -13,18 +13,14 @@ import psutil
 
 
 class BotManager:
-    """Manages bot processes"""
-    
     def __init__(self):
-        self.bots: Dict[str, dict] = {}  # bot_id -> bot_info
-        self.processes: Dict[str, subprocess.Popen] = {}  # bot_id -> process
+        self.bots: Dict[str, dict] = {}
+        self.processes: Dict[str, subprocess.Popen] = {}
         
     def create_bot(self, bot_id: str, homeserver: str, user_id: str, password: str, flowise_url: str):
-        """Create a new bot instance"""
         if bot_id in self.bots:
             raise ValueError(f"Bot with id {bot_id} already exists")
-            
-        # Create bot configuration
+
         bot_config = {
             "bot_id": bot_id,
             "homeserver": homeserver,
@@ -37,63 +33,54 @@ class BotManager:
         self.bots[bot_id] = bot_config
         
     def start_bot(self, bot_id: str):
-        """Start a bot process"""
         if bot_id not in self.bots:
             raise ValueError(f"Bot with id {bot_id} does not exist")
             
         if bot_id in self.processes:
-            # Check if process is still running
             proc = self.processes[bot_id]
-            if proc.poll() is None:  # Process is still running
+            if proc.poll() is None:
                 return
                 
-        # Create bot-specific script
         bot_script = f"""
-import asyncio
-from matrix_bot import FlowiseBot
+            import asyncio
+            from matrix_bot import FlowiseBot
 
-async def main():
-    bot = FlowiseBot(
-        homeserver="{self.bots[bot_id]['homeserver']}",
-        user_id="{self.bots[bot_id]['user_id']}", 
-        password="{self.bots[bot_id]['password']}",
-        flowise_url="{self.bots[bot_id]['flowise_url']}"
-    )
-    await bot.run()
+            async def main():
+                bot = FlowiseBot(
+                    homeserver="{self.bots[bot_id]['homeserver']}",
+                    user_id="{self.bots[bot_id]['user_id']}", 
+                    password="{self.bots[bot_id]['password']}",
+                    flowise_url="{self.bots[bot_id]['flowise_url']}"
+                )
+                await bot.run()
 
-if __name__ == "__main__":
-    asyncio.run(main())
-"""
-        
-        # Write bot script to temporary file
+            if __name__ == "__main__":
+                asyncio.run(main())
+            """
+
         bot_filename = f"/tmp/bot_{bot_id}.py"
         with open(bot_filename, "w") as f:
             f.write(bot_script)
-            
-        # Start the bot as a subprocess
+
         process = subprocess.Popen(['python3', bot_filename])
         self.processes[bot_id] = process
         self.bots[bot_id]["status"] = "running"
         
     def stop_bot(self, bot_id: str):
-        """Stop a bot process"""
         if bot_id not in self.processes:
             return
             
         proc = self.processes[bot_id]
-        if proc.poll() is None:  # Process is still running
-            # Terminate the process and its children
+        if proc.poll() is None:
             parent = psutil.Process(proc.pid)
             children = parent.children(recursive=True)
             for child in children:
                 child.terminate()
             parent.terminate()
-            
-            # Wait for graceful termination
+
             try:
                 parent.wait(timeout=5)
             except psutil.TimeoutExpired:
-                # Force kill if needed
                 for child in children:
                     child.kill()
                 parent.kill()
@@ -103,24 +90,18 @@ if __name__ == "__main__":
             self.bots[bot_id]["status"] = "stopped"
             
     def list_bots(self):
-        """List all bots and their status"""
-        # Update status based on process state
         for bot_id in self.bots:
             if bot_id in self.processes:
                 proc = self.processes[bot_id]
-                if proc.poll() is not None:  # Process has ended
+                if proc.poll() is not None:
                     self.bots[bot_id]["status"] = "stopped"
                     
         return list(self.bots.values())
 
-
-# Initialize bot manager
 bot_manager = BotManager()
 
-# Create FastAPI app
 app = FastAPI(title="Matrix Bot Manager")
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -129,7 +110,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pydantic models
 class CreateBotRequest(BaseModel):
     bot_id: str
     homeserver: str
@@ -146,7 +126,6 @@ class StopBotRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    """Serve the main page"""
     html_content = """
 <!DOCTYPE html>
 <html>
@@ -330,7 +309,6 @@ async def root():
 
 @app.post("/create_bot")
 async def create_bot(request: CreateBotRequest):
-    """Create a new bot"""
     try:
         bot_manager.create_bot(
             request.bot_id,
@@ -348,7 +326,6 @@ async def create_bot(request: CreateBotRequest):
 
 @app.post("/start_bot")
 async def start_bot(request: StartBotRequest):
-    """Start a bot"""
     try:
         bot_manager.start_bot(request.bot_id)
         return {"message": f"Bot {request.bot_id} started successfully"}
@@ -360,7 +337,6 @@ async def start_bot(request: StartBotRequest):
 
 @app.post("/stop_bot")
 async def stop_bot(request: StopBotRequest):
-    """Stop a bot"""
     try:
         bot_manager.stop_bot(request.bot_id)
         return {"message": f"Bot {request.bot_id} stopped successfully"}
@@ -370,7 +346,6 @@ async def stop_bot(request: StopBotRequest):
 
 @app.get("/bots")
 async def list_bots():
-    """List all bots"""
     return bot_manager.list_bots()
 
 
