@@ -28,3 +28,5 @@ unpaddedbase64==2.1.0
 urllib3==2.5.0
 Werkzeug==3.0.6
 yarl==1.22.0
+flask==3.0.3
+docker==7.1.0

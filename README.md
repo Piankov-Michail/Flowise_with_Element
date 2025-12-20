@@ -113,13 +113,26 @@ This project sets up a Matrix Synapse server with an orchestrator service for ma
    - `homeserver.log.config`
    - `orchestrator.py`
    - `Dockerfile.orchestrator`
+   - `requirements.txt`
    - `docker-compose.yml`
    - `.env`
 
-3. Start the services:
+3. Create the synapse_data directory:
+   ```bash
+   mkdir -p synapse_data
+   ```
+
+4. Start the services:
    ```bash
    docker-compose up -d
    ```
+
+## Important Fixes
+
+- Fixed Synapse permission error by adding a command in docker-compose.yml that ensures proper initialization and file permissions
+- Fixed Orchestrator Flask dependency error by updating requirements.txt with flask and docker packages
+- Synapse will now properly generate signing keys with correct permissions
+- Orchestrator service will start successfully with all required dependencies
 
 ## Usage
 
