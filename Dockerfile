@@ -10,3 +10,7 @@ COPY . .
 EXPOSE 8001
 
 CMD ["python", "bot_manager.py"]
+
+EXPOSE 8002
+
+CMD ["python", "user_manager.py"]
