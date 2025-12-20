@@ -1,10 +1,15 @@
 import asyncio
 import aiohttp
 import logging
+import argparse
+import sys
 from nio import AsyncClient, MatrixRoom, RoomMessageText, InviteMemberEvent
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 class FlowiseBot:
@@ -17,7 +22,7 @@ class FlowiseBot:
             homeserver=self.homeserver,
             user=self.user_id,
             ssl=False,
-            store_path="./matrix_store"
+            store_path=f"./matrix_store_{user_id.replace('@', '').replace(':', '_')}"
         )
         
     async def on_invite(self, room: MatrixRoom, event: InviteMemberEvent) -> None:
@@ -69,7 +74,9 @@ class FlowiseBot:
 
     async def run(self):
         try:
-            logger.info("🚀 Starting Flowise Matrix Bot...")
+            logger.info(f"🚀 Starting Flowise Matrix Bot {self.user_id}...")
+            logger.info(f"Homeserver: {self.homeserver}")
+            logger.info(f"Flowise URL: {self.flowise_url}")
             
             # Логинимся
             await self.client.login(self.password)
@@ -96,11 +103,19 @@ class FlowiseBot:
             await self.client.close()
 
 async def main():
+    parser = argparse.ArgumentParser(description='Matrix Flowise Bot')
+    parser.add_argument('--homeserver', required=True, help='Matrix homeserver URL')
+    parser.add_argument('--user', required=True, help='Bot user ID (e.g., @bot:localhost)')
+    parser.add_argument('--password', required=True, help='Bot password')
+    parser.add_argument('--flowise-url', required=True, help='Flowise API URL')
+    
+    args = parser.parse_args()
+    
     bot = FlowiseBot(
-        homeserver="http://localhost:8008",
-        user_id="@flowise-bot:localhost", 
-        password="1111111",
-        flowise_url="http://localhost:3000/api/v1/prediction/e441db18-4e6d-4157-93e3-68a1c8ad525a"
+        homeserver=args.homeserver,
+        user_id=args.user,
+        password=args.password,
+        flowise_url=args.flowise_url
     )
     await bot.run()
 
