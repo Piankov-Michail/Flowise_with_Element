@@ -1,4 +1,20 @@
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: matrix_postgres
+    restart: unless-stopped
+    networks:
+      - matrix-network
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=matrix_management
+      - POSTGRES_USER=matrix_user
+      - POSTGRES_PASSWORD=matrix_pass
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
   # Matrix Synapse Server
   synapse:
     image: matrixdotorg/synapse:latest
@@ -45,15 +61,18 @@ services:
     ports:
       - "8001:8001"
     depends_on:
+      - postgres
       - synapse
       - flowise
     environment:
       - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://matrix_user:matrix_pass@postgres:5432/matrix_management
 
 networks:
   matrix-network:
     driver: bridge
 
 volumes:
+  postgres-data:
   synapse-data:
   flowise-data:

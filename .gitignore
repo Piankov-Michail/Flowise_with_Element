@@ -1,1 +1,41 @@
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database
+matrix_management.db
+
+# Temporary/backup files
+*.tmp
+*.swp
+*.swo
+
+# Environment files
 .env
+.env.local
+*.env.*
+
+# IDE and editor files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Backup/deprecated files
+*.deprecated
+
+# Dependencies and builds
+node_modules/
+venv/
+.venv/
+dist/
+build/
+target/
+.gradle/
+.mypy_cache/
+.pytest_cache/
+```

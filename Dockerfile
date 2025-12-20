@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE 8001
 
-CMD ["python", "bot_manager.py"]
+CMD ["python", "orchestration.py"]
