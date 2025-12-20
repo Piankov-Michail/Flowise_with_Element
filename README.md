@@ -144,6 +144,8 @@ docker exec -it synapse register_new_matrix_user http://localhost:8008 -c /data/
 - `docker-compose.yml`: Docker orchestration file
 - `Dockerfile`: Container definition for bot manager
 - `Example_Chatflow.json`: Sample Flowise chatflow configuration
+- `homeserver.yaml`: Synapse Matrix server configuration file
+- `log_config.yaml`: Logging configuration for Synapse
 
 ## Troubleshooting
 

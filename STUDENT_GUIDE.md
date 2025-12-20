@@ -91,6 +91,8 @@ The core bot implementation that:
 - `docker-compose.yml`: Orchestrates all services
 - `Dockerfile`: Defines the bot manager container
 - Network configuration for inter-service communication
+- `homeserver.yaml`: Synapse Matrix server configuration file
+- `log_config.yaml`: Logging configuration for Synapse
 
 ## Troubleshooting Common Issues
 
