@@ -20,16 +20,38 @@ Server
 
 ## Quick Start with Docker Compose
 
-1. **Start the entire system:**
+1. **Update requirements if needed:** If you encounter an error about uvicorn version (like uvicorn==0.35.2 not found), update the requirements.txt file:
+```bash
+# Change the uvicorn version in requirements.txt from 0.35.2 to 0.36.0
+sed -i 's/uvicorn==0.35.2/uvicorn==0.36.0/g' requirements.txt
+```
+
+2. **Start the entire system:**
 ```bash
 docker-compose up -d
 ```
 
-2. **Wait for services to be ready:**
+3. **Wait for services to be ready:**
 ```bash
 # Wait until all services show healthy status
 docker-compose ps
 ```
+
+## Alternative Method (Without Docker)
+
+If Docker is not available in your environment, you can run the system manually:
+
+1. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Run the system simulation script:
+   ```bash
+   python3 start_system.py
+   ```
+
+Note: This method simulates the external services (Synapse and Flowise) and runs only the Bot Manager. For a full setup with Docker, you would need to install Docker and Docker Compose first.
 
 ## Student Workflow
 
