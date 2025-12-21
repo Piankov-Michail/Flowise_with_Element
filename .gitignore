@@ -10,7 +10,6 @@ venv/
 .venv/
 .env
 .env.local
-.env.*
 .venv/
 venv/
 pip-log.txt

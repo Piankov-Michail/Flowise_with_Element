@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: orchestrator
-      POSTGRES_USER: orchestrator_user
-      POSTGRES_PASSWORD: orchestrator_pass
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -25,8 +23,7 @@ services:
       - ./homeserver.log.config:/data/homeserver.log.config
       - synapse_data:/data
     environment:
-      - SYNAPSE_SERVER_NAME=localhost
-      - SYNAPSE_REPORT_STATS=no
+      - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
     networks:
       - matrix_network
     entrypoint: /bin/sh
@@ -39,19 +36,23 @@ services:
     container_name: orchestrator
     restart: unless-stopped
     ports:
-      - "8001:8001/tcp"
+      - "${ORCHESTRATOR_PORT}:8001/tcp"
     environment:
-      - DB_HOST=postgres
-      - DB_NAME=orchestrator
-      - DB_USER=orchestrator_user
-      - DB_PASSWORD=orchestrator_pass
-      - ORCHESTRATOR_WEB_CLIENT_SECRET=${ORCHESTRATOR_WEB_CLIENT_SECRET:-1111111}
-      - ORCHESTRATOR_ADMIN_PASSWORD=${ORCHESTRATOR_ADMIN_PASSWORD:-1111111}
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - ORCHESTRATOR_WEB_CLIENT_SECRET=${ORCHESTRATOR_WEB_CLIENT_SECRET}
+      - ORCHESTRATOR_ADMIN_PASSWORD=${ORCHESTRATOR_ADMIN_PASSWORD}
+      - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
+      - SYNAPSE_PUBLIC_URL=${SYNAPSE_PUBLIC_URL}
+      - SYNAPSE_INTERNAL_URL=${SYNAPSE_INTERNAL_URL}
+      - ORCHESTRATOR_PUBLIC_URL=${ORCHESTRATOR_PUBLIC_URL}
     depends_on:
       - postgres
       - synapse
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # To execute docker commands
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - matrix_network
 
