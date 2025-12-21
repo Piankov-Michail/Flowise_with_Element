@@ -1,7 +1,7 @@
 # Flowise_with_Element
 ### <br>
 
-## [Cheme](https://app.holst.so/share/b/6a62eb9a-db48-455b-8a3c-cf1b0d0a8eb1)
+## [Cheme + DEMO](https://app.holst.so/share/b/6a62eb9a-db48-455b-8a3c-cf1b0d0a8eb1)
 <br>
 
 ## Configure your .env and homeserver.yaml
@@ -49,9 +49,6 @@ docker exec -it ollama ollama run gpt-oss:20b-cloud
 ### Log in with your user
 ### Find bot user `e.g @bot:matrix.local`
 ### Start chating
-<br>
-
-## [DEMO](https://github.com/Piankov-Michail/Flowise_with_Element/blob/main/DEMO.pdf)
 <br>
 
 ## Resources:
