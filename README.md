@@ -1,7 +1,7 @@
 # Flowise_with_Element
 ### <br>
 
-## [Cheme + DEMO](https://app.holst.so/share/b/6a62eb9a-db48-455b-8a3c-cf1b0d0a8eb1)
+## [Diagram + DEMO](https://app.holst.so/share/b/6a62eb9a-db48-455b-8a3c-cf1b0d0a8eb1)
 <br>
 
 ## Configure your .env and homeserver.yaml
