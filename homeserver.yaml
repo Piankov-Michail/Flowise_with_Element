@@ -2,7 +2,7 @@ server_name: "matrix.local"
 pid_file: /data/homeserver.pid
 
 # Публичный URL для клиентов (важно для работы из локальной сети)
-public_baseurl: "http://192.168.0.7:8008/"  # Замените на IP вашего сервера в локальной сети
+public_baseurl: "http://192.168.0.0:8008/"  # Замените на IP вашего сервера в локальной сети
 
 listeners:
   - port: 8008
