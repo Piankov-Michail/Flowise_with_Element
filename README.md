@@ -44,10 +44,11 @@ docker exec -it ollama ollama run gpt-oss:20b-cloud
 ### Launch your bot
 <br>
 
-## Open [Element Web](https://riot.im/app/) or download Element Desktop
+## Open [Element Web](https://riot.im/app/) or download Element Desktop (Maybe Ethernet bad access)
 ### Set up your homeserver url
 ### Log in with your user
 ### Find bot user `e.g @bot:matrix.local`
+### Start chating
 <br>
 
 ## [DEMO](https://github.com/Piankov-Michail/Flowise_with_Element/blob/main/DEMO.pdf)
