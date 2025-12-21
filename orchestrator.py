@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-Orchestrator service for managing Matrix Synapse users and bots
-"""
-
 import os
 import signal
 import threading
@@ -21,26 +16,21 @@ import logging
 
 from dotenv import load_dotenv
 
-# Загружаем переменные окружения
 load_dotenv()
 
-# Получаем настройки из .env
 SYNAPSE_SERVER_NAME = os.getenv('SYNAPSE_SERVER_NAME', 'localhost')
 SYNAPSE_PUBLIC_URL = os.getenv('SYNAPSE_PUBLIC_URL', 'http://localhost:8008')
 SYNAPSE_INTERNAL_URL = os.getenv('SYNAPSE_INTERNAL_URL', 'http://synapse:8008')
 ORCHESTRATOR_PUBLIC_URL = os.getenv('ORCHESTRATOR_PUBLIC_URL', 'http://localhost:8001')
 
-# Глобальный словарь для хранения запущенных процессов
 running_bots = {}
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.getenv('ORCHESTRATOR_WEB_CLIENT_SECRET', 'default_secret_1111111')
 
-# Initialize Docker client
 try:
     docker_client = docker.from_env()
     logger.info("Docker client initialized successfully")
@@ -48,7 +38,6 @@ except Exception as e:
     logger.error(f"Failed to initialize Docker client: {e}")
     docker_client = None
 
-# Database connection
 def get_db_connection():
     conn = psycopg2.connect(
         host=os.getenv('DB_HOST', 'postgres'),
@@ -58,12 +47,10 @@ def get_db_connection():
     )
     return conn
 
-# Initialize database tables
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Create users table
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -72,8 +59,7 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
-    # Create bots table
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS bots (
             id SERIAL PRIMARY KEY,
@@ -84,8 +70,7 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
-    # Create processes table to track running bots - ИСПРАВЛЕНО
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS bot_processes (
             id SERIAL PRIMARY KEY,
@@ -95,7 +80,6 @@ def init_db():
         )
     """)
     
-    # Добавляем индекс для быстрого поиска
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_bot_processes_bot_id 
         ON bot_processes(bot_id)
@@ -140,22 +124,18 @@ def logout():
     return redirect(url_for('login'))
 
 def register_matrix_user_simple(username, password, is_admin=False):
-    """Register user with proper domain handling"""
     try:
         logger.info(f"Registering user: {username} for domain {SYNAPSE_SERVER_NAME}")
-        
-        # Форматируем username правильно для текущего домена
+
         if not username.startswith('@'):
             username = '@' + username
         if not username.endswith(f':{SYNAPSE_SERVER_NAME}'):
-            # Удаляем старый домен если есть
             if ':' in username:
                 username = username.split(':')[0]
             username = username + f':{SYNAPSE_SERVER_NAME}'
         
         logger.info(f"Formatted username: {username}")
-        
-        # Основной метод регистрации
+
         return register_via_docker_container(username, password, is_admin)
             
     except Exception as e:
@@ -163,15 +143,12 @@ def register_matrix_user_simple(username, password, is_admin=False):
         return False, f"Unexpected error: {str(e)}"
 
 def register_via_docker_container(username, password, is_admin=False):
-    """Register user via Docker container with proper domain"""
     try:
         if docker_client is None:
             return False, "Docker client not available"
-        
-        # Получаем контейнер Synapse
+
         container = docker_client.containers.get('synapse')
-        
-        # Извлекаем localpart (без @ и домена)
+
         localpart = username
         if localpart.startswith('@'):
             localpart = localpart[1:]
@@ -179,8 +156,7 @@ def register_via_docker_container(username, password, is_admin=False):
             localpart = localpart.split(':')[0]
         
         logger.info(f"Registering localpart: {localpart} on server {SYNAPSE_SERVER_NAME}")
-        
-        # Строим команду с правильными параметрами
+
         cmd = [
             'docker', 'exec', '-i', 'synapse',
             'register_new_matrix_user',
@@ -197,7 +173,6 @@ def register_via_docker_container(username, password, is_admin=False):
         
         logger.info(f"Executing command: {' '.join(cmd)}")
         
-        # Выполняем команду
         process = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -232,22 +207,18 @@ def create_user():
     is_admin = request.form.get('is_admin') == 'on'
     
     logger.info(f"Creating user: {username}, admin: {is_admin}")
-    
-    # Validate username
+
     if not username:
         return jsonify({'error': 'Username is required'}), 400
-    
-    # Format username
+
     if not username.startswith('@'):
         username = '@' + username
     if not username.endswith(':localhost'):
         username = username + ':localhost'
-    
-    # Check password length
+
     if len(password) < 3:
         return jsonify({'error': 'Password must be at least 3 characters'}), 400
-    
-    # Hash the password for our database
+
     try:
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     except Exception as e:
@@ -255,18 +226,15 @@ def create_user():
         return jsonify({'error': 'Error processing password'}), 500
     
     try:
-        # Register user in Synapse
         success, message = register_matrix_user_simple(username, password, is_admin)
         
         if not success:
-            # Check if it's just that user already exists
             if "already exists" not in message.lower():
                 logger.error(f"Failed to create user in Synapse: {message}")
                 return jsonify({'error': f'Failed to create user: {message}'}), 500
             else:
                 logger.info(f"User already exists in Synapse: {message}")
-        
-        # Store user info in our database
+
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
@@ -277,13 +245,11 @@ def create_user():
             conn.commit()
             logger.info(f"User {username} saved to database")
         except psycopg2.IntegrityError as e:
-            # User already exists in our DB
             conn.rollback()
             logger.info(f"User {username} already exists in database: {e}")
         except Exception as e:
             conn.rollback()
             logger.error(f"Error saving user to database: {e}")
-            # Don't fail if database save fails, just log it
         
         cursor.close()
         conn.close()
@@ -301,7 +267,6 @@ def manage_bots():
         return jsonify({'error': 'Not authenticated'}), 401
     
     if request.method == 'GET':
-        # Get all bots
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute("SELECT * FROM bots ORDER BY created_at DESC")
@@ -311,14 +276,12 @@ def manage_bots():
         return jsonify(bots)
     
     elif request.method == 'POST':
-        # Create a new bot
         bot_user_id = request.form['bot_user_id']
         flowise_url = request.form['flowise_url']
         password = request.form['bot_password']
         
         logger.info(f"Creating bot: {bot_user_id}")
-        
-        # Validate bot_user_id format
+
         if not bot_user_id:
             return jsonify({'error': 'Bot user ID is required'}), 400
         
@@ -326,8 +289,7 @@ def manage_bots():
             bot_user_id = '@' + bot_user_id
         if not bot_user_id.endswith(':localhost'):
             bot_user_id = bot_user_id + ':localhost'
-        
-        # Hash the password
+
         try:
             password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         except Exception as e:
@@ -352,11 +314,8 @@ def manage_bots():
             return jsonify({'error': str(e)}), 500
 
 @app.route('/api/bot/<int:bot_id>/action', methods=['POST'])
-@app.route('/api/bot/<int:bot_id>/action', methods=['POST'])
 def bot_action(bot_id):
-    """Handle bot actions (start, stop, delete) with proper error handling"""
     try:
-        # Проверка аутентификации
         if not session.get('authenticated'):
             return jsonify({'error': 'Not authenticated'}), 401
         
@@ -368,8 +327,7 @@ def bot_action(bot_id):
         
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
-        # Get bot information including password
+
         cursor.execute("SELECT * FROM bots WHERE id = %s", (bot_id,))
         bot = cursor.fetchone()
         
@@ -377,12 +335,10 @@ def bot_action(bot_id):
             cursor.close()
             conn.close()
             return jsonify({'error': 'Bot not found'}), 404
-        
-        # Check if provided password matches bot password or admin password
+
         admin_password = os.getenv('ORCHESTRATOR_ADMIN_PASSWORD', '1111111')
         
         try:
-            # Проверяем пароль бота
             is_valid_bot_password = bcrypt.checkpw(
                 provided_password.encode('utf-8'), 
                 bot['password_hash'].encode('utf-8')
@@ -391,20 +347,16 @@ def bot_action(bot_id):
             logger.error(f"Password check error: {e}")
             is_valid_bot_password = False
 
-        # Проверяем админский пароль
         is_valid_admin_password = (provided_password == admin_password)
         
         if not is_valid_bot_password and not is_valid_admin_password:
             cursor.close()
             conn.close()
             return jsonify({'error': 'Invalid password'}), 401
-        
-        # Определяем какой пароль использовать для запуска бота
         bot_password_to_use = provided_password if is_valid_bot_password else admin_password
         
         try:
             if action == 'start':
-                # Start the bot with the correct password
                 start_bot_process(
                     bot_id, 
                     bot['bot_user_id'], 
@@ -417,7 +369,6 @@ def bot_action(bot_id):
                 status_code = 200
                 
             elif action == 'stop':
-                # Stop the bot
                 stop_bot_process(bot_id)
                 cursor.execute("UPDATE bots SET status = 'stopped' WHERE id = %s", (bot_id,))
                 conn.commit()
@@ -426,12 +377,10 @@ def bot_action(bot_id):
                 
             elif action == 'delete':
                 try:
-                    # Stop the bot if running
                     stop_bot_process(bot_id)
                 except Exception as e:
                     logger.warning(f"Non-critical error stopping bot {bot_id} before deletion: {e}")
-                
-                # Delete from database
+
                 cursor.execute("DELETE FROM bot_processes WHERE bot_id = %s", (bot_id,))
                 cursor.execute("DELETE FROM bots WHERE id = %s", (bot_id,))
                 conn.commit()
@@ -460,7 +409,6 @@ def bot_action(bot_id):
     return jsonify(result), status_code
 
 def start_cleanup_scheduler():
-    """Start background thread for cleaning up dead processes"""
     def cleanup_loop():
         while True:
             try:
@@ -469,8 +417,7 @@ def start_cleanup_scheduler():
                     logger.info(f"✅ Background cleanup completed: {cleaned} dead processes, {updated} status updates")
             except Exception as e:
                 logger.error(f"Cleanup scheduler error: {e}")
-            
-            # Wait 5 minutes before next cleanup
+
             threading.Event().wait(300)
     
     cleanup_thread = threading.Thread(target=cleanup_loop, daemon=True)
@@ -478,22 +425,18 @@ def start_cleanup_scheduler():
     logger.info("🧹 Background cleanup scheduler started")
 
 def cleanup_dead_processes():
-    """Clean up database records for processes that are no longer running"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Get all process records
+
         cursor.execute("SELECT bot_id, process_id FROM bot_processes")
         processes = cursor.fetchall()
         
         cleaned_count = 0
         for bot_id, pid in processes:
             try:
-                # Check if process exists
-                os.kill(pid, 0)  # This doesn't send a signal, just checks if process exists
+                os.kill(pid, 0)
             except OSError:
-                # Process doesn't exist - clean up record
                 cursor.execute(
                     "DELETE FROM bot_processes WHERE bot_id = %s AND process_id = %s",
                     (bot_id, pid)
@@ -504,8 +447,7 @@ def cleanup_dead_processes():
         if cleaned_count > 0:
             conn.commit()
             logger.info(f"🧹 Cleaned up {cleaned_count} dead process records")
-        
-        # Also clean up bots that have no processes but are marked as running
+
         cursor.execute("""
             UPDATE bots 
             SET status = 'stopped' 
@@ -527,32 +469,26 @@ def cleanup_dead_processes():
         return 0, 0
 
 def start_bot_process(bot_id, bot_user_id, flowise_url, password):
-    """Start a bot process using the existing matrix-bot.py script - ИСПРАВЛЕНО"""
     try:
         logger.info(f"Starting bot {bot_id} ({bot_user_id}) with Flowise URL: {flowise_url}")
-        
-        # Ensure the bot script exists
+
         bot_script_path = "/app/matrix-bot.py"
         if not os.path.exists(bot_script_path):
             error_msg = f"Bot script not found at {bot_script_path}"
             logger.error(error_msg)
             raise FileNotFoundError(error_msg)
-        
-        # Get the correct server name from environment
+
         server_name = os.getenv('SYNAPSE_SERVER_NAME', 'matrix.local')
-        
-        # Format bot_user_id correctly for the current server
+
         if not bot_user_id.startswith('@'):
             bot_user_id = '@' + bot_user_id
         if not bot_user_id.endswith(f':{server_name}'):
-            # Remove any existing domain part
             if ':' in bot_user_id:
                 bot_user_id = bot_user_id.split(':')[0]
             bot_user_id = bot_user_id + f':{server_name}'
         
         logger.info(f"✅ Using formatted bot user ID: {bot_user_id}")
-        
-        # Create environment variables for the bot
+
         env = os.environ.copy()
         env.update({
             'BOT_HOMESERVER': os.getenv('SYNAPSE_INTERNAL_URL', 'http://synapse:8008'),
@@ -562,15 +498,12 @@ def start_bot_process(bot_id, bot_user_id, flowise_url, password):
             'BOT_ID': str(bot_id),
             'SERVER_NAME': server_name
         })
-        
-        # Create log directory if it doesn't exist
+
         log_dir = "/app/bot_logs"
         os.makedirs(log_dir, exist_ok=True)
-        
-        # Log file for this bot
+
         log_file = f"{log_dir}/bot_{bot_id}.log"
-        
-        # Start the bot process
+
         with open(log_file, 'a') as log_f:
             process = subprocess.Popen(
                 [
@@ -585,28 +518,24 @@ def start_bot_process(bot_id, bot_user_id, flowise_url, password):
                 stderr=subprocess.STDOUT,
                 text=True,
                 env=env,
-                preexec_fn=os.setsid  # Create new process group
+                preexec_fn=os.setsid
             )
-        
-        # Store process info
+
         running_bots[bot_id] = {
             'process': process,
             'bot_user_id': bot_user_id,
             'log_file': log_file,
             'started_at': datetime.now()
         }
-        
-        # Store in database - ИСПРАВЛЕНО (без ON CONFLICT)
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Сначала удаляем существующую запись, если есть
+
         cursor.execute(
             "DELETE FROM bot_processes WHERE bot_id = %s",
             (bot_id,)
         )
-        
-        # Затем вставляем новую запись
+
         cursor.execute(
             "INSERT INTO bot_processes (bot_id, process_id) VALUES (%s, %s)",
             (bot_id, process.pid)
@@ -617,8 +546,7 @@ def start_bot_process(bot_id, bot_user_id, flowise_url, password):
         conn.close()
         
         logger.info(f"✅ Bot {bot_id} started with PID: {process.pid}, Log: {log_file}")
-        
-        # Start a thread to monitor the process
+
         monitor_thread = threading.Thread(
             target=monitor_bot_process,
             args=(bot_id, process, log_file),
@@ -630,7 +558,6 @@ def start_bot_process(bot_id, bot_user_id, flowise_url, password):
         
     except Exception as e:
         logger.error(f"❌ Error starting bot {bot_id}: {e}", exc_info=True)
-        # Try to clean up if we failed after starting the process
         if bot_id in running_bots:
             try:
                 process = running_bots[bot_id]['process']
@@ -641,18 +568,15 @@ def start_bot_process(bot_id, bot_user_id, flowise_url, password):
         raise
 
 def stop_bot_process(bot_id):
-    """Stop a bot process with better error handling"""
     try:
         logger.info(f"Stopping bot {bot_id}")
-        
-        # First check local dictionary
+
         if bot_id in running_bots:
             process_info = running_bots[bot_id]
             process = process_info['process']
             
             try:
-                # Check if process is still running
-                if process.poll() is None:  # Process is still running
+                if process.poll() is None:
                     logger.info(f"Terminating bot {bot_id} process group (PID: {process.pid})")
                     os.killpg(os.getpgid(process.pid), signal.SIGTERM)
                     try:
@@ -667,22 +591,18 @@ def stop_bot_process(bot_id):
                 logger.warning(f"Bot {bot_id} process already terminated")
             except Exception as e:
                 logger.error(f"Error terminating bot {bot_id} process: {e}")
-            
-            # Always remove from running_bots
+
             del running_bots[bot_id]
-        
-        # Clean up database records
+
         conn = get_db_connection()
         cursor = conn.cursor()
         
         try:
-            # Remove from bot_processes table
             cursor.execute(
                 "DELETE FROM bot_processes WHERE bot_id = %s",
                 (bot_id,)
             )
-            
-            # Update bot status if no other processes exist
+
             cursor.execute(
                 "UPDATE bots SET status = 'stopped' WHERE id = %s AND status != 'stopped'",
                 (bot_id,)
@@ -706,17 +626,14 @@ def stop_bot_process(bot_id):
         raise
 
 def monitor_bot_process(bot_id, process, log_file):
-    """Monitor a bot process and update status if it dies"""
     try:
         process.wait()
         exit_code = process.returncode
         logger.info(f"Bot {bot_id} process terminated with code: {exit_code}")
-        
-        # Log termination
+
         with open(log_file, 'a') as f:
             f.write(f"\n[{datetime.now()}] Bot process terminated with exit code: {exit_code}\n")
-        
-        # Update status in database
+
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -726,8 +643,7 @@ def monitor_bot_process(bot_id, process, log_file):
         conn.commit()
         cursor.close()
         conn.close()
-        
-        # Clean up if still in running_bots
+
         if bot_id in running_bots:
             del running_bots[bot_id]
             
@@ -751,7 +667,6 @@ def get_bot_logs(bot_id):
         logger.error(f"Error reading logs for bot {bot_id}: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# HTML Templates (same as before)
 LOGIN_TEMPLATE = '''
 <!DOCTYPE html>
 <html>
@@ -1779,10 +1694,8 @@ HTML_TEMPLATE = '''
 '''
 
 if __name__ == '__main__':
-    # Initialize the database
     init_db()
     
     start_cleanup_scheduler()
 
-    # Run the Flask app
     app.run(host='0.0.0.0', port=8001, debug=True)

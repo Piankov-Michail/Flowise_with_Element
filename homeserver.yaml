@@ -1,13 +1,9 @@
-# homeserver.yaml - учебный сервер для 30 студентов
-
-# Основные настройки сервера
-server_name: "matrix.local"  # Изменено с localhost на имя для локальной сети
+server_name: "matrix.local" 
 pid_file: /data/homeserver.pid
 
 # Публичный URL для клиентов (важно для работы из локальной сети)
 public_baseurl: "http://192.168.0.7:8008/"  # Замените на IP вашего сервера в локальной сети
 
-# Слушатели с правильной привязкой ко всем интерфейсам
 listeners:
   - port: 8008
     type: http
@@ -16,7 +12,6 @@ listeners:
       - names: [client, federation]
         compress: false
 
-# Настройки базы данных (SQLite подходит для 30 пользователей, но для продакшена лучше PostgreSQL)
 database:
   name: sqlite3
   args:
@@ -100,8 +95,6 @@ cors:
   allow_credentials: true
   max_age: 86400
 
-# Отключение статистики
 report_stats: false
 
-# Логирование (минимальная конфигурация)
 log_config: "/data/homeserver.log.config"
