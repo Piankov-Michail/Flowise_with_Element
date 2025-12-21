@@ -6,6 +6,8 @@ import sys
 import base64
 import hashlib
 import json
+import time
+from datetime import datetime, timezone
 from typing import Dict, Tuple, Optional
 from nio import AsyncClient, MatrixRoom, RoomMessageText, RoomMessageFile, InviteMemberEvent, LoginResponse, LoginError
 
@@ -49,12 +51,37 @@ class FlowiseBot:
             store_path=f"./matrix_store_{user_id.replace('@', '').replace(':', '_')}"
         )
         
+        # Время запуска бота для фильтрации старых сообщений (в миллисекундах)
+        self.start_time = int(time.time() * 1000)
+        logger.info(f"⏰ Bot start time: {self.start_time} ({datetime.fromtimestamp(self.start_time/1000, timezone.utc)})")
+        
         # Кэш для хранения файлов пользователей: {(room_id, user_id): file_data}
         self.file_cache: Dict[Tuple[str, str], dict] = {}
         
         # Кэш для хранения истории сессий (room_id -> session_id)
         self.session_cache: Dict[str, str] = {}
+    
+    def should_process_message(self, event) -> bool:
+        """
+        Проверяет, является ли сообщение новым (отправлено после запуска бота)
+        """
+        # Получаем timestamp события из источника
+        event_source = getattr(event, 'source', {})
+        content = event_source.get('content', {})
+        event_ts = event_source.get('origin_server_ts', 0)
         
+        # Если timestamp отсутствует - обрабатываем сообщение (на всякий случай)
+        if event_ts == 0:
+            logger.debug("❓ Message has no timestamp, processing anyway")
+            return True
+        
+        # Если сообщение старше времени запуска бота - пропускаем
+        if event_ts < self.start_time:
+            logger.debug(f"⏭️ Skipping old message (event ts: {event_ts} < bot start ts: {self.start_time})")
+            return False
+        
+        return True
+    
     async def login_with_retry(self, retries=3):
         """Логинимся с повторными попытками"""
         for attempt in range(retries):
@@ -136,7 +163,12 @@ class FlowiseBot:
         
     async def on_file(self, room: MatrixRoom, event: RoomMessageFile) -> None:
         """Обрабатываем файлы"""
+        # Игнорируем свои файлы
         if event.sender == self.client.user_id:
+            return
+        
+        # Пропускаем старые файлы
+        if not self.should_process_message(event):
             return
             
         logger.info(f"📎 File from {event.sender}: {event.body}")
@@ -244,7 +276,12 @@ class FlowiseBot:
         
     async def on_message(self, room: MatrixRoom, event: RoomMessageText) -> None:
         """Обрабатываем текстовые сообщения"""
+        # Игнорируем свои сообщения
         if event.sender == self.client.user_id:
+            return
+        
+        # Пропускаем старые сообщения
+        if not self.should_process_message(event):
             return
             
         logger.info(f"📨 Message from {event.sender} in room {room.room_id[:20]}...: {event.body}")
@@ -299,8 +336,6 @@ class FlowiseBot:
                         # Обрезаем слишком длинные ответы
                         if len(answer) > 4000:
                             answer = answer[:4000] + "...\n\n(Ответ слишком длинный, обрезан)"
-                            
-                        # Убрана строка с добавлением информации о сессии
                     elif response.status == 413:
                         answer = "❌ Файл слишком большой для обработки Flowise (макс. ~10MB)."
                     else:
@@ -389,7 +424,8 @@ class FlowiseBot:
 Пользователь: {self.client.user_id}
 Активные сессии: {len(self.session_cache)}
 Файлы в кэше: {len(self.file_cache)}
-Flowise: {self.flowise_url}"""
+Flowise: {self.flowise_url}
+Время запуска: {datetime.fromtimestamp(self.start_time/1000, timezone.utc)}"""
             
             await self.client.room_send(
                 room_id=room.room_id,
@@ -410,6 +446,7 @@ Flowise: {self.flowise_url}"""
             logger.info(f"🚀 Starting Flowise Matrix Bot {self.user_id}...")
             logger.info(f"Homeserver: {self.homeserver}")
             logger.info(f"Flowise URL: {self.flowise_url}")
+            logger.info(f"⏰ Filter messages newer than: {datetime.fromtimestamp(self.start_time/1000, timezone.utc)}")
             
             # Логинимся с повторными попытками
             if not await self.login_with_retry():

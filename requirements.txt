@@ -32,7 +32,3 @@ yarl==1.22.0
 flask==3.0.3
 docker==7.1.0
 python-dotenv==1.2.1
-python-olm==3.2.16
-cachetools==5.3.0
-atomicwrites==1.4.1
-peewee==3.17.0

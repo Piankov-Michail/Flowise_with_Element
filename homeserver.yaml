@@ -89,17 +89,16 @@ session_lifetime: "90d"
 # CORS настройки для доступа из браузера (важно для веб-клиентов)
 cors:
   allowed_origin:
-    - "*"  # Разрешить ВСЁ для учебного сервера в WSL2
-    - "http://192.168.1.0:8008"     # Вся ваша локальная сеть
-    - "http://10.0.0.0/24"        # Если сеть 10.0.0.x
-    - "http://172.16.0.0/12"      # Все частные сети
-    - "http://localhost:8001"     # Orchestrator
-    - "http://192.168.1.100:8001" # Orchestrator по IP
-    - "https://app.element.io"    # Веб-клиент Element
-    - "https://element.io"        # Официальные домены
-    - "http://172.18.0.0/16"      # Docker сеть внутри WSL2
-  allow_credentials: true         # Разрешить аутентификацию
-  max_age: 86400 
+    - "*"  # Для локальной разработки можно оставить
+    - "https://app.element.io"
+    - "https://element.io" 
+    - "https://*.*"  # Для мобильных клиентов
+    - "http://localhost:*" 
+    - "http://127.0.0.1:*"
+    - "http://192.168.*.*"  # Вся локальная сеть 192.168.x.x
+    - "http://10.*.*.*"     # Вся локальная сеть 10.x.x.x
+  allow_credentials: true
+  max_age: 86400
 
 # Отключение статистики
 report_stats: false
