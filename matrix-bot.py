@@ -7,7 +7,7 @@ import base64
 import hashlib
 import json
 from typing import Dict, Tuple, Optional
-from nio import AsyncClient, MatrixRoom, RoomMessageText, RoomMessageFile, InviteMemberEvent, LoginResponse, LoginError
+from nio import AsyncClient, MatrixRoom, RoomMessageText, RoomMessageFile, InviteMemberEvent, LoginResponse, LoginError, MegolmEvent, RoomEncryptionEvent
 
 # Настройка логирования
 logging.basicConfig(
@@ -46,7 +46,8 @@ class FlowiseBot:
             homeserver=self.homeserver,
             user=self.user_id,
             ssl=False,
-            store_path=f"./matrix_store_{user_id.replace('@', '').replace(':', '_')}"
+            store_path=f"./matrix_store_{user_id.replace('@', '').replace(':', '_')}",
+            encryption_enabled=True  # Включаем поддержку шифрования
         )
         
         # Кэш для хранения файлов пользователей: {(room_id, user_id): file_data}
@@ -134,6 +135,58 @@ class FlowiseBot:
             traceback.print_exc()
             return None
         
+    async def on_encrypted_message(self, room: MatrixRoom, event: MegolmEvent) -> None:
+        """Обрабатываем зашифрованные сообщения"""
+        logger.info(f"🔒 Encrypted event received in room {room.room_id[:20]}... from {event.sender}")
+        
+        # Попытка расшифровать событие
+        try:
+            decrypted_event = self.client.decrypt_event(event, room)
+            if decrypted_event:
+                logger.info(f"🔓 Successfully decrypted event from {event.sender}")
+                
+                # Проверяем тип расшифрованного события и обрабатываем соответствующим образом
+                if hasattr(decrypted_event, 'msgtype'):
+                    if decrypted_event.msgtype == 'm.text':
+                        # Это текстовое сообщение
+                        fake_text_event = RoomMessageText(
+                            event_id=decrypted_event.event_id,
+                            sender=decrypted_event.sender,
+                            room_id=decrypted_event.room_id,
+                            body=decrypted_event.body,
+                            server_timestamp=decrypted_event.server_timestamp
+                        )
+                        # Обрабатываем как обычное текстовое сообщение
+                        await self.on_message(room, fake_text_event)
+                    elif decrypted_event.msgtype == 'm.file':
+                        # Это файл
+                        fake_file_event = RoomMessageFile(
+                            event_id=decrypted_event.event_id,
+                            sender=decrypted_event.sender,
+                            room_id=decrypted_event.room_id,
+                            body=decrypted_event.body,
+                            server_timestamp=decrypted_event.server_timestamp,
+                            url=decrypted_event.url if hasattr(decrypted_event, 'url') else None,
+                            file=decrypted_event.file if hasattr(decrypted_event, 'file') else None,
+                            source=decrypted_event.source if hasattr(decrypted_event, 'source') else {}
+                        )
+                        # Обрабатываем как обычный файл
+                        await self.on_file(room, fake_file_event)
+                    else:
+                        logger.info(f"Encrypted event type {decrypted_event.msgtype} not handled")
+                else:
+                    logger.warning(f"Decrypted event has no msgtype: {type(decrypted_event)}")
+            else:
+                logger.warning(f"Failed to decrypt event from {event.sender}")
+        except Exception as e:
+            logger.error(f"Error decrypting event: {e}")
+            import traceback
+            traceback.print_exc()
+
+    async def on_encryption(self, room: MatrixRoom, event: RoomEncryptionEvent) -> None:
+        """Обрабатываем события включения шифрования в комнате"""
+        logger.info(f"🔐 Encryption enabled in room {room.display_name} ({room.room_id[:20]}...): {event.algorithm}")
+
     async def on_file(self, room: MatrixRoom, event: RoomMessageFile) -> None:
         """Обрабатываем файлы"""
         if event.sender == self.client.user_id:
@@ -427,6 +480,9 @@ Flowise: {self.flowise_url}"""
             self.client.add_event_callback(self.on_invite, InviteMemberEvent)
             self.client.add_event_callback(self.on_message, RoomMessageText)
             self.client.add_event_callback(self.on_file, RoomMessageFile)
+            self.client.add_event_callback(self.on_encrypted_message, MegolmEvent)
+            # Обработка события включения шифрования в комнате
+            self.client.add_event_callback(self.on_encryption, RoomEncryptionEvent)
             
             # Сначала синхронизируемся чтобы получить текущее состояние
             logger.info("🔄 Starting initial sync...")
@@ -435,6 +491,11 @@ Flowise: {self.flowise_url}"""
                 logger.info(f"✅ Initial sync completed. Next batch: {sync_response.next_batch[:20]}...")
             else:
                 logger.warning("⚠️ Initial sync returned empty response")
+            
+            # Инициализируем шифрование, если включено
+            if self.client.should_upload_keys:
+                logger.info("🔑 Uploading encryption keys...")
+                await self.client.keys_upload()
             
             logger.info("👂 Bot is ready and listening for messages and files...")
             logger.info("📁 Supported file types: PDF, TXT, DOCX, Excel, JSON, CSV, images, code")
