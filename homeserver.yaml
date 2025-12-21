@@ -1,0 +1,100 @@
+server_name: "matrix.local" 
+pid_file: /data/homeserver.pid
+
+# Публичный URL для клиентов (важно для работы из локальной сети)
+public_baseurl: "http://192.168.0.7:8008/"  # Замените на IP вашего сервера в локальной сети
+
+listeners:
+  - port: 8008
+    type: http
+    tls: false
+    resources:
+      - names: [client, federation]
+        compress: false
+
+database:
+  name: sqlite3
+  args:
+    database: /data/homeserver.db
+
+# Настройки регистрации
+enable_registration: true
+enable_registration_without_verification: true
+registrations_require_3pid: []
+allow_guest_access: true
+
+# Секрет для регистрации пользователей через CLI
+registration_shared_secret: "flowise_training_secret_2025"
+
+# Полное отключение всех лимитов
+rc_login:
+  address:
+    per_second: 10000
+    burst_count: 10000
+  account:
+    per_second: 10000
+    burst_count: 10000
+  failed_attempts:
+    per_second: 10000
+    burst_count: 10000
+
+rc_registration:
+  per_second: 10000
+  burst_count: 10000
+
+rc_joins:
+  local:
+    per_second: 10000
+    burst_count: 10000
+  remote:
+    per_second: 10000
+    burst_count: 10000
+
+rc_messages:
+  per_second: 10000
+  burst_count: 10000
+
+# Отключение CAPTCHA
+enable_registration_captcha: false
+
+# Хранилище медиа
+media_store_path: /data/media_store
+max_upload_size: "100M"
+max_image_pixels: "32M"
+thumbnail_sizes:
+  - width: 32
+    height: 32
+    method: scale
+  - width: 96
+    height: 96
+    method: scale
+  - width: 320
+    height: 240
+    method: scale
+  - width: 640
+    height: 480
+    method: scale
+  - width: 800
+    height: 600
+    method: scale
+
+# Долгие сессии для студентов
+session_lifetime: "90d"
+
+# CORS настройки для доступа из браузера (важно для веб-клиентов)
+cors:
+  allowed_origin:
+    - "*"  # Для локальной разработки можно оставить
+    - "https://app.element.io"
+    - "https://element.io" 
+    - "https://*.*"  # Для мобильных клиентов
+    - "http://localhost:*" 
+    - "http://127.0.0.1:*"
+    - "http://192.168.*.*"  # Вся локальная сеть 192.168.x.x
+    - "http://10.*.*.*"     # Вся локальная сеть 10.x.x.x
+  allow_credentials: true
+  max_age: 86400
+
+report_stats: false
+
+log_config: "/data/homeserver.log.config"

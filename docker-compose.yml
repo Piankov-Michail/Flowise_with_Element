@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - matrix_network
+
+  synapse:
+    image: matrixdotorg/synapse:latest
+    container_name: synapse
+    restart: unless-stopped
+    ports:
+      - "8008:8008/tcp"
+    volumes:
+      - ./homeserver.yaml:/data/homeserver.yaml
+      - ./homeserver.log.config:/data/homeserver.log.config
+      - synapse_data:/data
+    environment:
+      - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
+    networks:
+      - matrix_network
+    entrypoint: /bin/sh
+    command: -c "chown -R $(stat -c %u:%g /data):/data 2>/dev/null || true && python -m synapse.app.homeserver --config-path=/data/homeserver.yaml"
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.orchestrator
+    container_name: orchestrator
+    restart: unless-stopped
+    ports:
+      - "${ORCHESTRATOR_PORT}:8001/tcp"
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - ORCHESTRATOR_WEB_CLIENT_SECRET=${ORCHESTRATOR_WEB_CLIENT_SECRET}
+      - ORCHESTRATOR_ADMIN_PASSWORD=${ORCHESTRATOR_ADMIN_PASSWORD}
+      - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
+      - SYNAPSE_PUBLIC_URL=${SYNAPSE_PUBLIC_URL}
+      - SYNAPSE_INTERNAL_URL=${SYNAPSE_INTERNAL_URL}
+      - ORCHESTRATOR_PUBLIC_URL=${ORCHESTRATOR_PUBLIC_URL}
+    depends_on:
+      - postgres
+      - synapse
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - matrix_network
+
+volumes:
+  postgres_data:
+  synapse_data:
+
+networks:
+  matrix_network:
+    driver: bridge
