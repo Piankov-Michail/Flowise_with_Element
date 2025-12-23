@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir "matrix-nio[e2e]"
 
 COPY orchestrator.py .
 COPY matrix-bot.py .
+COPY templates/* templates/
 
 EXPOSE 8001
 

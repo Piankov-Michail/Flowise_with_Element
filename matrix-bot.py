@@ -7,6 +7,7 @@ import base64
 import hashlib
 import json
 import time
+import secrets  # Добавлен для генерации случайных session_id
 from datetime import datetime, timezone
 from typing import Dict, Tuple, Optional
 import os
@@ -157,17 +158,42 @@ class FlowiseBot:
         
         return False
     
-    def generate_session_id(self, room_id: str) -> str: 
-        session_hash = hashlib.sha256(room_id.encode()).hexdigest()[:16]
-        return f"matrix_{session_hash}"
+    def generate_random_session_id(self, room_id: str = None) -> str:
+        """Генерирует случайный session_id с привязкой к room_id и временной меткой"""
+        timestamp = int(time.time() * 1000)
+        random_hash = secrets.token_hex(8)  # 16 символов случайных данных
+        if room_id:
+            room_hash = hashlib.sha256(room_id.encode()).hexdigest()[:8]
+            return f"matrix_{room_hash}_{random_hash}_{timestamp}"
+        else:
+            return f"matrix_{random_hash}_{timestamp}"
     
     def get_or_create_session(self, room_id: str) -> str:
         if room_id not in self.session_cache:
-            self.session_cache[room_id] = self.generate_session_id(room_id)
-            logger.info(f"📝 Created new session for room {room_id[:20]}...: {self.session_cache[room_id]}")
+            session_id = self.generate_random_session_id(room_id)
+            self.session_cache[room_id] = session_id
+            logger.info(f"📝 Created new session for room {room_id[:20]}...: {session_id}")
         
         return self.session_cache[room_id]
         
+    def reset_session(self, room_id: str) -> str:
+        """Сбрасывает сессию для комнаты и возвращает новый session_id"""
+        old_session = self.session_cache.get(room_id, "no session")
+        session_id = self.generate_random_session_id(room_id)
+        self.session_cache[room_id] = session_id
+        
+        # Очищаем кэш файлов для этой комнаты и отправителя
+        keys_to_remove = []
+        for key in self.file_cache.keys():
+            if key[0] == room_id:
+                keys_to_remove.append(key)
+        
+        for key in keys_to_remove:
+            del self.file_cache[key]
+        
+        logger.info(f"🔄 Reset session for room {room_id[:20]}...: {old_session} -> {session_id}")
+        return session_id
+    
     async def on_invite(self, room: MatrixRoom, event: InviteMemberEvent) -> None:
         if event.state_key == self.user_id:
             logger.info(f"🤝 Accepting invitation to room {room.room_id[:20]}...")
@@ -226,7 +252,7 @@ class FlowiseBot:
             logger.error(f"❌ Error sending unencrypted message: {e}")
 
     async def handle_to_device(self, event: ToDeviceEvent) -> None:
-        #Обработка device-to-device сообщения (для E2EE)
+        # Обработка device-to-device сообщения (для E2EE)
         try:
             logger.debug(f"📱 Received ToDeviceEvent: {event.__class__.__name__}")
             
@@ -262,13 +288,12 @@ class FlowiseBot:
             logger.error(f"❌ Key verification error: {e}")
 
     async def download_and_encode_file(self, mxc_url: str) -> Optional[str]:
-        #Скачивание файла с Matrix сервера и кодировка в base64
+        # Скачивание файла с Matrix сервера и кодировка в base64
         try:
             logger.info(f"⬇️ Downloading file: {mxc_url}")
 
             response = await self.client.download(mxc_url)
             if response and hasattr(response, 'body'):
-
                 if len(response.body) > 100 * 1024 * 1024:
                     logger.warning(f"File too large: {len(response.body)} bytes")
                     return None
@@ -286,7 +311,7 @@ class FlowiseBot:
             return None
 
     async def on_megolm_message(self, room: MatrixRoom, event: MegolmEvent) -> None:
-        #Обработка зашифрованных сообщений (события Megolm)
+        # Обработка зашифрованных сообщений (события Megolm)
         logger.debug(f"🔐 Received MegolmEvent in room {room.room_id[:20]}... from {event.sender}")
         
         if event.sender == self.client.user_id:
@@ -575,10 +600,10 @@ class FlowiseBot:
                     "name": file_info['name'],
                     "mime": file_info['mime']
                 }]
-                timeout = aiohttp.ClientTimeout(total=120)
+                timeout = aiohttp.ClientTimeout(total=240)
             else:
                 logger.info(f"📤 Sending text query to Flowise with session_id: {session_id}")
-                timeout = aiohttp.ClientTimeout(total=60)
+                timeout = aiohttp.ClientTimeout(total=120)
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -590,8 +615,6 @@ class FlowiseBot:
                         result = await response.json()
                         answer = result.get('text', '🤖 No response from Flowise')
 
-                        if len(answer) > 4000:
-                            answer = answer[:4000] + "...\n\n(Ответ слишком длинный, обрезан)"
                     elif response.status == 413:
                         answer = "❌ Файл слишком большой для обработки Flowise (макс. ~10MB)."
                     else:
@@ -652,16 +675,18 @@ class FlowiseBot:
         command = event.body.strip()
         
         if command == "!reset":
-            if room.room_id in self.session_cache:
-                old_session = self.session_cache.pop(room.room_id)
-                logger.info(f"🔄 Reset session for room {room.room_id[:20]}: {old_session}")
-                await self.send_text_message(room.room_id, "🔄 Сессия сброшена. Начинаем новый диалог.")
-            else:
-                await self.send_text_message(room.room_id, "Сессия не сброшена.")
+            new_session_id = self.reset_session(room.room_id)
+            await self.send_text_message(
+                room.room_id, 
+                f"🔄 Сессия сброшена. Начинаем новый диалог.\n🆔 Новая сессия: {new_session_id}"
+            )
                 
         elif command == "!session":
             session_id = self.get_or_create_session(room.room_id)
-            await self.send_text_message(room.room_id, f"🆔 ID сессии: {session_id}\nКомната: {room.room_id[:30]}...")
+            await self.send_text_message(
+                room.room_id, 
+                f"🆔 ID текущей сессии: {session_id}\nКомната: {room.room_id[:30]}..."
+            )
             
         elif command == "!help" or command == "!start":
             help_text = """🤖 **Команды бота:**
