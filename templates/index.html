@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Orchestrator</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --border-radius: 4px;
+            --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #495057;
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 0;
+            text-align: center;
+            border-radius: var(--border-radius) 0 0 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .server-info {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .server-info h2 {
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .server-info h2 i {
+            font-size: 1.2rem;
+        }
+
+        .server-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .server-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition);
+        }
+
+        .server-card:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .server-card h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .server-card h3 i {
+            font-size: 1rem;
+        }
+
+        .connect-url {
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            word-break: break-all;
+            font-size: 0.95rem;
+            margin: 0.5rem 0;
+            transition: var(--transition);
+        }
+
+        .connect-url:hover {
+            background: rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+        }
+
+        .element-instructions {
+            background: rgba(255, 255, 255, 0.9);
+            color: #495057;
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            margin-top: 1rem;
+        }
+
+        .element-instructions ol {
+            padding-left: 1.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .element-instructions li {
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .tab {
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--secondary-color);
+            border-bottom: 2px solid transparent;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .tab:hover {
+            color: var(--primary-color);
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .card-header h2 {
+            font-size: 1.5rem;
+            color: var(--dark-color);
+            margin: 0;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button i {
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0069d9;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+            transform: translateY(-1px);
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background-color: #e0a800;
+            transform: translateY(-1px);
+        }
+
+        .btn-info {
+            background-color: var(--info-color);
+            color: white;
+        }
+
+        .btn-info:hover {
+            background-color: #138496;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid #ced4da;
+            color: var(--dark-color);
+        }
+
+        .btn-outline:hover {
+            background-color: #f8f9fa;
+            border-color: #adb5bd;
+        }
+
+        .bot-item {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: var(--border-radius);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            transition: var(--transition);
+        }
+
+        .bot-item:hover {
+            border-color: #dee2e6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .bot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .bot-user-id {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--primary-color);
+        }
+
+        .bot-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-running {
+            background-color: rgba(40, 167, 69, 0.15);
+            color: var(--success-color);
+        }
+
+        .status-stopped {
+            background-color: rgba(220, 53, 69, 0.15);
+            color: var(--danger-color);
+        }
+
+        .bot-details {
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .bot-url {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--border-radius);
+            word-break: break-all;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+
+        .bot-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .action-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .password-input {
+            width: 200px !important;
+            min-width: 150px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            max-width: 400px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .notification.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .notification.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .notification i {
+            font-size: 1.2rem;
+        }
+
+        .no-bots {
+            text-align: center;
+            padding: 2rem;
+            color: var(--secondary-color);
+            background: #f8f9fa;
+            border-radius: var(--border-radius);
+        }
+
+        .no-bots i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #e9ecef;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding: 1.5rem 0;
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+            border-top: 1px solid #e9ecef;
+        }
+
+        @media (max-width: 768px) {
+            .server-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .tabs {
+                flex-direction: column;
+                border-bottom: none;
+            }
+            
+            .tab {
+                border-bottom: 1px solid #dee2e6;
+                border-radius: 0;
+            }
+            
+            .bot-actions {
+                flex-direction: column;
+            }
+            
+            .action-group {
+                width: 100%;
+            }
+            
+            .password-input {
+                width: 100% !important;
+            }
+            
+            .notification {
+                width: 90%;
+                max-width: none;
+                left: 5%;
+                right: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🚀 Matrix Orchestrator</h1>
+            <p>Управление пользователями и ботами Matrix</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Server Information Card -->
+        <div class="server-info">
+            <h2><i>🌐</i> Информация о сервере</h2>
+            <div class="server-grid">
+                <div class="server-card">
+                    <h3><i>🏠</i> Synapse Server</h3>
+                    <p><strong>Имя сервера:</strong> <span class="connect-url">{{ synapse_server_name }}</span></p>
+                    <p><strong>Public URL:</strong> <span class="connect-url">{{ synapse_public_url }}</span></p>
+                </div>
+                <div class="server-card">
+                    <h3><i>🔧</i> Orchestrator</h3>
+                    <p><strong>URL интерфейса:</strong> <span class="connect-url">{{ orchestrator_public_url }}</span></p>
+                    <p><strong>API Endpoint:</strong> <span class="connect-url">{{ orchestrator_public_url }}/api</span></p>
+                </div>
+            </div>
+            <div class="element-instructions">
+                <h3><i>📱</i> Как подключиться через Element:</h3>
+                <ol>
+                    <li>Откройте Element (веб или мобильное приложение)</li>
+                    <li>Нажмите "Edit" рядом с "Sign in to an existing account"</li>
+                    <li>В поле "Server name" введите: <strong>{{ synapse_server_name }}</strong></li>
+                    <li>Или в поле "Other homeserver" введите: <span class="connect-url">{{ synapse_public_url }}</span></li>
+                    <li>Используйте созданного пользователя для входа</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('users')">
+                <i>👤</i> Создать пользователя
+            </div>
+            <div class="tab" onclick="showTab('bots')">
+                <i>🤖</i> Управление ботами
+            </div>
+        </div>
+
+        <!-- Notifications -->
+        <div class="notification" id="notification">
+            <span id="notification-icon"></span>
+            <span id="notification-text"></span>
+        </div>
+
+        <!-- Create User Tab -->
+        <div id="users" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i>👤</i> Создание нового пользователя</h2>
+                </div>
+                <form id="userForm">
+                    <div class="form-group">
+                        <label for="username">
+                            <i>🆔</i> Имя пользователя (без @ и :{{ synapse_server_name }})
+                        </label>
+                        <input type="text" id="username" name="username" required 
+                               placeholder="например: alice или bob_admin">
+                        <small class="form-text text-muted">
+                            Пользователь будет создан как @username:{{ synapse_server_name }}
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">
+                            <i>🔒</i> Пароль (минимум 3 символа)
+                        </label>
+                        <input type="password" id="password" name="password" required minlength="3">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm_password">
+                            <i>🔒</i> Подтвердите пароль
+                        </label>
+                        <input type="password" id="confirm_password" name="confirm_password" required minlength="3">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="is_admin" name="is_admin"> 
+                            <i>👑</i> Администратор (полный доступ к серверу)
+                        </label>
+                    </div>
+                    <button type="submit" class="btn-primary">
+                        <i>✅</i> Создать пользователя
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Manage Bots Tab -->
+        <div id="bots" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i>🤖</i> Создание нового бота</h2>
+                </div>
+                <form id="botForm">
+                    <div class="form-group">
+                        <label for="bot_user_id">
+                            <i>🆔</i> Имя бота (без @ и :{{ synapse_server_name }})
+                        </label>
+                        <input type="text" id="bot_user_id" name="bot_user_id" required 
+                               placeholder="например: assistant_bot или support_agent">
+                        <small class="form-text text-muted">
+                            Бот будет создан как @botname:{{ synapse_server_name }}
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="flowise_url">
+                            <i>🔗</i> URL Flowise (полный путь к API)
+                        </label>
+                        <input type="text" id="flowise_url" name="flowise_url" required 
+                               placeholder="http://flowise:3000/api/v1/prediction/your-api-key">
+                        <small class="form-text text-muted">
+                            Пример: http://flowise:3000/api/v1/prediction/abc123-def456
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="bot_password">
+                            <i>🔒</i> Пароль для бота
+                        </label>
+                        <input type="password" id="bot_password" name="bot_password" required minlength="3">
+                    </div>
+                    <button type="submit" class="btn-success">
+                        <i>🤖</i> Создать бота
+                    </button>
+                </form>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2><i>📋</i> Существующие боты</h2>
+                </div>
+                <div id="botsList">
+                    <div class="no-bots">
+                        <i>🤖</i>
+                        <h3>Нет созданных ботов</h3>
+                        <p>Создайте первого бота, заполнив форму выше</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Matrix Orchestrator © {{ current_year }} | Версия 1.0</p>
+            <p>Сервер: {{ synapse_server_name }} | IP: {{ server_ip }}</p>
+        </div>
+    </footer>
+
+    <script>
+        // Глобальные переменные
+        const notification = document.getElementById('notification');
+        const notificationText = document.getElementById('notification-text');
+        const notificationIcon = document.getElementById('notification-icon');
+
+        // Функция показа уведомления
+        function showNotification(message, isSuccess = true) {
+            notificationText.textContent = message;
+            notification.className = `notification ${isSuccess ? 'success' : 'error'} show`;
+            
+            if (isSuccess) {
+                notificationIcon.innerHTML = '✅';
+            } else {
+                notificationIcon.innerHTML = '❌';
+            }
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 5000);
+        }
+
+        // Переключение вкладок
+        function showTab(tabName) {
+            // Скрыть все вкладки
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Убрать активный класс со всех табов
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Показать выбранную вкладку
+            document.getElementById(tabName).classList.add('active');
+            
+            // Найти и активировать соответствующий таб
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                if (tab.textContent.includes(tabName === 'users' ? 'Создать пользователя' : 'Управление ботами')) {
+                    tab.classList.add('active');
+                }
+            });
+            
+            // Загрузить ботов при переключении на вкладку ботов
+            if (tabName === 'bots') {
+                loadBots();
+            }
+        }
+
+        // Создание пользователя
+        document.getElementById('userForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            const is_admin = document.getElementById('is_admin').checked;
+            
+            // Валидация паролей
+            if (password !== confirmPassword) {
+                showNotification('Пароли не совпадают!', false);
+                return;
+            }
+            
+            if (password.length < 3) {
+                showNotification('Пароль должен быть минимум 3 символа!', false);
+                return;
+            }
+            
+            // Создание formData
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+            if (is_admin) {
+                formData.append('is_admin', 'on');
+            }
+            
+            try {
+                const response = await fetch('/api/create_user', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(result.message || 'Пользователь успешно создан!');
+                    document.getElementById('userForm').reset();
+                } else {
+                    showNotification(result.error || 'Ошибка при создании пользователя', false);
+                }
+            } catch (error) {
+                showNotification('Ошибка сети: ' + error.message, false);
+                console.error('Network error:', error);
+            }
+        });
+
+        // Создание бота
+        document.getElementById('botForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const botUserId = document.getElementById('bot_user_id').value;
+            const flowiseUrl = document.getElementById('flowise_url').value;
+            const botPassword = document.getElementById('bot_password').value;
+            
+            if (botPassword.length < 3) {
+                showNotification('Пароль бота должен быть минимум 3 символа!', false);
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('bot_user_id', botUserId);
+            formData.append('flowise_url', flowiseUrl);
+            formData.append('bot_password', botPassword);
+            
+            try {
+                const response = await fetch('/api/bots', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(result.message || 'Бот успешно создан!');
+                    document.getElementById('botForm').reset();
+                    loadBots(); // Обновить список ботов
+                } else {
+                    showNotification(result.error || 'Ошибка при создании бота', false);
+                }
+            } catch (error) {
+                showNotification('Ошибка сети: ' + error.message, false);
+                console.error('Network error:', error);
+            }
+        });
+
+        // Загрузка списка ботов
+        async function loadBots() {
+            try {
+                const response = await fetch('/api/bots');
+                if (!response.ok) {
+                    throw new Error('Ошибка при загрузке ботов');
+                }
+                
+                const bots = await response.json();
+                const botsList = document.getElementById('botsList');
+                
+                if (bots.length === 0) {
+                    botsList.innerHTML = `
+                        <div class="no-bots">
+                            <i>🤖</i>
+                            <h3>Нет созданных ботов</h3>
+                            <p>Создайте первого бота, заполнив форму выше</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                bots.forEach(bot => {
+                    const statusClass = bot.status === 'running' ? 'status-running' : 'status-stopped';
+                    const statusText = bot.status === 'running' ? 'РАБОТАЕТ' : 'ОСТАНОВЛЕН';
+                    const statusIcon = bot.status === 'running' ? '🟢' : '🔴';
+                    
+                    html += `
+                        <div class="bot-item">
+                            <div class="bot-header">
+                                <div class="bot-user-id">${bot.bot_user_id}</div>
+                                <span class="bot-status ${statusClass}">
+                                    ${statusIcon} ${statusText}
+                                </span>
+                            </div>
+                            <div class="bot-details">
+                                <p><strong>Flowise URL:</strong></p>
+                                <p class="bot-url">${bot.flowise_url}</p>
+                                <p><strong>Создан:</strong> ${new Date(bot.created_at).toLocaleString('ru-RU')}</p>
+                            </div>
+                            <div class="bot-actions">
+                                <div class="action-group">
+                                    <input type="password" id="pass_${bot.id}" class="password-input" 
+                                           placeholder="Пароль бота или админа">
+                                </div>
+                                <div class="action-group">
+                                    <button class="btn-success" onclick="performBotAction(${bot.id}, 'start')">
+                                        <i>▶️</i> Запустить
+                                    </button>
+                                    <button class="btn-danger" onclick="performBotAction(${bot.id}, 'stop')">
+                                        <i>⏹️</i> Остановить
+                                    </button>
+                                </div>
+                                <div class="action-group">
+                                    <button class="btn-warning" onclick="getBotLogs(${bot.id})">
+                                        <i>📋</i> Логи
+                                    </button>
+                                    <button class="btn-danger" onclick="deleteBot(${bot.id})">
+                                        <i>🗑️</i> Удалить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                botsList.innerHTML = html;
+            } catch (error) {
+                showNotification('Ошибка при загрузке ботов: ' + error.message, false);
+                console.error('Error loading bots:', error);
+            }
+        }
+
+        // Выполнение действия с ботом
+        async function performBotAction(botId, action) {
+            const passwordInput = document.getElementById(`pass_${botId}`);
+            const password = passwordInput.value;
+            
+            if (!password) {
+                showNotification('Пожалуйста, введите пароль!', false);
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('action', action);
+            formData.append('password', password);
+            
+            try {
+                const response = await fetch(`/api/bot/${botId}/action`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const actionText = {
+                        'start': 'запущен',
+                        'stop': 'остановлен'
+                    };
+                    showNotification(`Бот успешно ${actionText[action]}!`);
+                    loadBots(); // Обновить список
+                } else {
+                    showNotification(result.error || `Ошибка при ${action === 'start' ? 'запуске' : 'остановке'} бота`, false);
+                }
+            } catch (error) {
+                showNotification('Ошибка сети: ' + error.message, false);
+                console.error('Network error:', error);
+            }
+        }
+
+        // Удаление бота
+        async function deleteBot(botId) {
+            if (!confirm('Вы уверены, что хотите удалить этого бота? Это действие нельзя отменить!')) {
+                return;
+            }
+            
+            const passwordInput = document.getElementById(`pass_${botId}`);
+            const password = passwordInput.value;
+            
+            if (!password) {
+                showNotification('Пожалуйста, введите пароль!', false);
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('action', 'delete');
+            formData.append('password', password);
+            
+            try {
+                const response = await fetch(`/api/bot/${botId}/action`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification('Бот успешно удален!');
+                    loadBots(); // Обновить список
+                } else {
+                    showNotification(result.error || 'Ошибка при удалении бота', false);
+                }
+            } catch (error) {
+                showNotification('Ошибка сети: ' + error.message, false);
+                console.error('Network error:', error);
+            }
+        }
+
+        // Получение логов бота
+        async function getBotLogs(botId) {
+            const passwordInput = document.getElementById(`pass_${botId}`);
+            const password = passwordInput.value;
+            
+            if (!password) {
+                showNotification('Пожалуйста, введите пароль!', false);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/bot/${botId}/logs`, {
+                    method: 'GET'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    // Показать логи в модальном окне или алерте
+                    alert(`Логи бота #${botId}:\n\n${result.logs}`);
+                } else {
+                    showNotification(result.error || 'Ошибка при получении логов', false);
+                }
+            } catch (error) {
+                showNotification('Ошибка сети: ' + error.message, false);
+                console.error('Network error:', error);
+            }
+        }
+
+        // Автоматическая загрузка ботов при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Проверяем, какая вкладка активна
+            const botsTab = document.getElementById('bots').classList.contains('active');
+            if (botsTab) {
+                loadBots();
+            }
+        });
+
+        // Предотвращение закрытия страницы при наличии незавершенных операций
+        window.addEventListener('beforeunload', function(e) {
+            // Можно добавить проверку на незавершенные операции
+            return;
+        });
+    </script>
+</body>
+</html>
