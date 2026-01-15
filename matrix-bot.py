@@ -57,8 +57,7 @@ class FlowiseBot:
         
         import tempfile
         import os
-        
-        # Временная директория для SQLite
+
         temp_dir = tempfile.gettempdir()
         safe_user_id = user_id.replace('@', '').replace(':', '_').replace('.', '_')
         store_path = os.path.join(temp_dir, f"matrix_store_{safe_user_id}")
@@ -310,6 +309,27 @@ class FlowiseBot:
             traceback.print_exc()
             return None
 
+    async def download_file_bytes(self, mxc_url: str) -> Optional[bytes]:
+        try:
+            logger.info(f"⬇️ Downloading file bytes: {mxc_url}")
+
+            response = await self.client.download(mxc_url)
+            if response and hasattr(response, 'body'):
+                if len(response.body) > 100 * 1024 * 1024:  # 100MB limit
+                    logger.warning(f"File too large: {len(response.body)} bytes")
+                    return None
+                
+                logger.info(f"✅ Downloaded file: {len(response.body)} bytes")
+                return response.body
+                
+            logger.error(f"Failed to download file from {mxc_url}")
+            return None
+        except Exception as e:
+            logger.error(f"Error downloading file bytes: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     async def on_megolm_message(self, room: MatrixRoom, event: MegolmEvent) -> None:
         # Обработка зашифрованных сообщений (события Megolm)
         logger.debug(f"🔐 Received MegolmEvent in room {room.room_id[:20]}... from {event.sender}")
@@ -361,7 +381,7 @@ class FlowiseBot:
         if not self.should_process_message(event):
             return
             
-        logger.info(f"📎 File from {event.sender}: {event.body}")
+        logger.info(f"File from {event.sender}: {event.body}")
         
         try:
             file_name = event.body or 'file'
@@ -393,38 +413,32 @@ class FlowiseBot:
                 logger.warning(f"⚠️ Unsupported file type: {mime_type}")
                 await self.send_text_message(
                     room.room_id,
-                    f"⚠️ Формат файла {mime_type} не поддерживается. Поддерживаются: PDF, TXT, DOCX, Excel, изображения, код."
+                    f"Формат файла {mime_type} не поддерживается. Поддерживаются: PDF, TXT, DOCX, Excel, изображения, код."
                 )
                 return
 
             if hasattr(event, 'url'):
-                file_data = await self.download_and_encode_file(event.url)
-                if file_data:
+                file_bytes = await self.download_file_bytes(event.url)
+                if file_bytes:
                     cache_key = (room.room_id, event.sender)
                     self.file_cache[cache_key] = {
-                        'data': file_data,
+                        'bytes': file_bytes,
                         'mime': mime_type,
                         'name': file_name,
                         'size': file_size
                     }
-                    logger.info(f"💾 Saved file '{file_name}' ({mime_type}) for {event.sender}")
+                    logger.info(f"💾 Saved file bytes '{file_name}' ({mime_type}) for {event.sender}")
                     
                     size_info = f" ({file_size} байт)" if file_size > 0 else ""
                     await self.send_text_message(
                         room.room_id,
-                        f"📁 Файл '{file_name}' получен{size_info}. Теперь задайте вопрос по этому файлу."
+                        f"Файл '{file_name}' получен{size_info}. Теперь задайте вопрос по этому файлу или загрузите его в базу данных командой !rag."
                     )
                 else:
                     await self.send_text_message(
                         room.room_id,
-                        f"❌ Не удалось загрузить файл '{file_name}'. Возможно, он слишком большой (>10MB)."
+                        f"Не удалось загрузить файл '{file_name}'. Возможно, он слишком большой (>100MB)."
                     )
-            else:
-                logger.error(f"No URL found in file event")
-                await self.send_text_message(
-                    room.room_id,
-                    f"❌ Не удалось получить файл '{file_name}' (нет ссылки)."
-                )
                 
         except Exception as e:
             logger.error(f"💥 Error processing file: {e}")
@@ -432,7 +446,7 @@ class FlowiseBot:
             traceback.print_exc()
             await self.send_text_message(
                 room.room_id,
-                f"❌ Ошибка при обработке файла: {str(e)[:100]}"
+                f"Ошибка при обработке файла: {str(e)[:100]}"
             )
 
     async def on_encrypted_file(self, room: MatrixRoom, event: RoomEncryptedFile):
@@ -456,7 +470,7 @@ class FlowiseBot:
                             logger.warning(f"File too large: {len(response.body)} bytes")
                             await self.send_text_message(
                                 room.room_id,
-                                "❌ Файл слишком большой (>100MB)."
+                                "Файл слишком большой (>100MB)."
                             )
                             return
 
@@ -479,11 +493,9 @@ class FlowiseBot:
                         
                         logger.info(f"🔓 Successfully decrypted file: {file_name} ({mime_type})")
 
-                        file_data = base64.b64encode(response.body).decode('utf-8')
-
                         cache_key = (room.room_id, event.sender)
                         self.file_cache[cache_key] = {
-                            'data': file_data,
+                            'bytes': response.body,
                             'mime': mime_type,
                             'name': file_name,
                             'size': file_size
@@ -494,25 +506,25 @@ class FlowiseBot:
                         size_info = f" ({file_size} байт)" if file_size > 0 else ""
                         await self.send_text_message(
                             room.room_id,
-                            f"📁 Зашифрованный файл '{file_name}' получен{size_info}. Теперь задайте вопрос по этому файлу."
+                            f"Зашифрованный файл '{file_name}' получен{size_info}. Теперь задайте вопрос по этому файлу или загрузите его в базу данных командой !rag."
                         )
                     else:
                         await self.send_text_message(
                             room.room_id,
-                            "❌ Не удалось загрузить зашифрованный файл."
+                            "Не удалось загрузить зашифрованный файл."
                         )
                 else:
                     logger.error("No URL found in encrypted file event")
                     await self.send_text_message(
                         room.room_id,
-                        "❌ Не удалось получить зашифрованный файл (нет ссылки)."
+                        "Не удалось получить зашифрованный файл (нет ссылки)."
                     )
                     
             except Exception as e:
                 logger.error(f"❌ Error downloading encrypted file: {e}")
                 await self.send_text_message(
                     room.room_id,
-                    "❌ Не удалось расшифровать файл. Возможно, отсутствуют ключи дешифровки.\n"
+                    "Не удалось расшифровать файл. Возможно, отсутствуют ключи дешифровки.\n"
                     "Пожалуйста, отправьте файл без шифрования или используйте команду !help в незашифрованной комнате."
                 )
                 
@@ -522,7 +534,7 @@ class FlowiseBot:
             traceback.print_exc()
             await self.send_text_message(
                 room.room_id,
-                f"❌ Ошибка при обработке зашифрованного файла: {str(e)[:100]}"
+                f"Ошибка при обработке зашифрованного файла: {str(e)[:100]}"
             )
 
     async def send_text_message(self, room_id: str, text: str):
@@ -613,27 +625,26 @@ class FlowiseBot:
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
-                        answer = result.get('text', '🤖 No response from Flowise')
+                        answer = result.get('text', 'No response from Flowise')
 
                     elif response.status == 413:
-                        answer = "❌ Файл слишком большой для обработки Flowise (макс. ~10MB)."
+                        answer = "Файл слишком большой для обработки Flowise (макс. ~10MB)."
                     else:
                         error_text = await response.text()
                         logger.error(f"Flowise error {response.status}: {error_text}")
-                        answer = f"❌ Flowise error: {response.status}"
+                        answer = f"Flowise error: {response.status}"
                         
-            # Отправляем ответ
             await self.send_text_message(room.room_id, answer)
             logger.info(f"📤 Sent response to {event.sender}")
             
         except asyncio.TimeoutError:
             logger.error("⏰ Flowise request timeout")
-            await self.send_text_message(room.room_id, "⏰ Flowise не ответил вовремя. Попробуйте позже.")
+            await self.send_text_message(room.room_id, "Flowise не ответил вовремя. Попробуйте позже.")
         except Exception as e:
             logger.error(f"💥 Error: {e}")
             import traceback
             traceback.print_exc()
-            await self.send_text_message(room.room_id, f"❌ Error processing request: {str(e)[:200]}")
+            await self.send_text_message(room.room_id, f"Error processing request: {str(e)[:200]}")
     
     async def verify_all_devices(self):
         try:
@@ -673,39 +684,165 @@ class FlowiseBot:
 
     async def handle_command(self, room: MatrixRoom, event: RoomMessageText):
         command = event.body.strip()
-        
-        if command == "!reset":
+        if command.startswith('!rag'):
+            args = command.split()
+            chunk_size = 300
+            chunk_overlap = 150
+            metadata = {"source": "api-upload"}
+            
+            for arg in args[1:]:
+                if '=' in arg:
+                    key, value = arg.split('=', 1)
+                    if key == 'chunkSize':
+                        try:
+                            chunk_size = int(value)
+                        except ValueError:
+                            await self.send_text_message(room.room_id, f"Неверное значение chunkSize: {value}")
+                            return
+                    elif key == 'chunkOverlap':
+                        try:
+                            chunk_overlap = int(value)
+                        except ValueError:
+                            await self.send_text_message(room.room_id, f"Неверное значение chunkOverlap: {value}")
+                            return
+                    elif key == 'metadata':
+                        try:
+                            metadata = json.loads(value)
+                        except json.JSONDecodeError:
+                            await self.send_text_message(room.room_id, f"Неверный JSON в metadata: {value}")
+                            return
+            
+            cache_key = (room.room_id, event.sender)
+            if cache_key in self.file_cache:
+                file_info = self.file_cache[cache_key]
+                
+                try:
+                    # Правильный URL для upsert - должен содержать ID векторного хранилища
+                    API_URL = self.flowise_url.replace('/prediction/', '/vector/upsert/')
+                    
+                    # ВАЖНО: Flowise требует конкретный ID векторного хранилища в URL
+                    # Например: http://localhost:3000/api/v1/vector/upsert/afd20ae6-ab1b-40b8-bc52-2db8b0672311
+                    # Убедитесь, что ваш URL содержит правильный ID
+                    
+                    logger.info(f"📤 Отправка файла '{file_info['name']}' в Flowise по адресу: {API_URL}")
+                    
+                    # Создаем правильный multipart/form-data запрос
+                    form = aiohttp.FormData()
+                    
+                    # Ключевое исправление: отправляем файл как файл, а не как байты
+                    form.add_field(
+                        'files',
+                        file_info['bytes'],
+                        filename=file_info['name'],
+                        content_type=file_info['mime']
+                    )
+                    
+                    # Добавляем параметры как отдельные поля
+                    form.add_field('chunkSize', str(chunk_size))
+                    form.add_field('chunkOverlap', str(chunk_overlap))
+                    # metadata должно быть строкой JSON
+                    form.add_field('metadata', json.dumps(metadata))
+                    
+                    headers = {
+                        "Accept": "application/json"
+                    }
+                    
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(
+                            API_URL,
+                            data=form,
+                            headers=headers,
+                            timeout=aiohttp.ClientTimeout(total=300)
+                        ) as response:
+                            
+                            response_text = await response.text()
+                            logger.info(f"Flowise response ({response.status}): {response_text}")
+                            
+                            if response.status == 200:
+                                try:
+                                    result = json.loads(response_text)
+                                    message = result.get('message', 'Файл успешно загружен в базу данных')
+                                    await self.send_text_message(
+                                        room.room_id, 
+                                        f"{message}\n"
+                                        f"Параметры: chunkSize={chunk_size}, chunkOverlap={chunk_overlap}"
+                                    )
+                                    
+                                    # Очищаем кэш после успешной загрузки
+                                    del self.file_cache[cache_key]
+                                    
+                                except json.JSONDecodeError:
+                                    await self.send_text_message(
+                                        room.room_id,
+                                        f"Успешный ответ, но не удалось распарсить JSON: {response_text[:200]}"
+                                    )
+                            else:
+                                logger.error(f"❌ Upsert error {response.status}: {response_text}")
+                                await self.send_text_message(
+                                    room.room_id,
+                                    f"Ошибка Flowise ({response.status}): {response_text[:300]}"
+                                )
+                                
+                except asyncio.TimeoutError:
+                    logger.error("⏰ Flowise upsert request timeout")
+                    await self.send_text_message(
+                        room.room_id, 
+                        "Flowise не ответил вовремя. Возможно, файл слишком большой или сервер перегружен."
+                    )
+                except Exception as e:
+                    logger.error(f"❌ Ошибка при отправке файла в Flowise: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    await self.send_text_message(
+                        room.room_id, 
+                        f"Ошибка при отправке файла: {str(e)[:200]}"
+                    )
+            else:
+                await self.send_text_message(
+                    room.room_id, 
+                    "Нет файла для загрузки. Сначала отправьте файл, затем используйте команду !rag.\n\n"
+                    "Пример использования:\n"
+                    "1. Отправьте файл (PDF, DOCX, TXT и т.д.)\n"
+                    "2. Используйте команду:\n"
+                    "   !rag\n"
+                    "   !rag chunkSize=500 chunkOverlap=100\n"
+                    "   !rag chunkSize=300 chunkOverlap=150 metadata={\"source\":\"matrix\"}"
+                )
+
+        elif command == "!reset":
             new_session_id = self.reset_session(room.room_id)
+            self.file_cache = {}
             await self.send_text_message(
                 room.room_id, 
-                f"🔄 Сессия сброшена. Начинаем новый диалог.\n🆔 Новая сессия: {new_session_id}"
+                f"Сессия сброшена. Начинаем новый диалог.\nНовая сессия: {new_session_id}"
             )
                 
         elif command == "!session":
             session_id = self.get_or_create_session(room.room_id)
             await self.send_text_message(
                 room.room_id, 
-                f"🆔 ID текущей сессии: {session_id}\nКомната: {room.room_id[:30]}..."
+                f"ID текущей сессии: {session_id}\nКомната: {room.room_id[:30]}..."
             )
             
         elif command == "!help" or command == "!start":
-            help_text = """🤖 **Команды бота:**
+            help_text = """Команды бота:
 !help или !start - Показать это сообщение
 !reset - Сбросить историю диалога (начать новый разговор)
 !session - Показать ID текущей сессии
+!rag [chunkSize=300] [chunkOverlap=150] [metadata="{}"] - Загрузить файл в базу данных
 
-📁 **Как отправить файл:**
+Как отправить файл:
 1. Просто отправьте файл в чат (PDF, TXT, DOCX, изображения)
 2. Бот подтвердит получение файла
 3. Задайте вопрос по файлу
 
-💾 **Лимит файла:** ~10MB
-🆔 **Сессии:** Каждая комната имеет свою сессию, бот помнит контекст в рамках комнаты"""
+Лимит файла: ~10MB
+Сессии: Каждая комната имеет свою сессию, бот помнит контекст в рамках комнаты"""
             
             await self.send_text_message(room.room_id, help_text)
             
         elif command == "!status":
-            status_text = f"""🤖 **Статус бота:**
+            status_text = f"""Статус бота:
 Пользователь: {self.client.user_id}
 Активные сессии: {len(self.session_cache)}
 Файлы в кэше: {len(self.file_cache)}
@@ -715,17 +852,17 @@ Flowise: {self.flowise_url}
             await self.send_text_message(room.room_id, status_text)
             
         else:
-            await self.send_text_message(room.room_id, f"❓ Неизвестная команда: {command}\nИспользуйте !help для списка команд.")
+            await self.send_text_message(room.room_id, f"Неизвестная команда: {command}\nИспользуйте !help для списка команд.")
 
     async def run(self):
         try:
-            logger.info(f"🚀 Starting Flowise Matrix Bot {self.user_id}...")
+            logger.info(f"Starting Flowise Matrix Bot {self.user_id}...")
             logger.info(f"Homeserver: {self.homeserver}")
             logger.info(f"Flowise URL: {self.flowise_url}")
-            logger.info(f"⏰ Filter messages newer than: {datetime.fromtimestamp(self.start_time/1000, timezone.utc)}")
+            logger.info(f"Filter messages newer than: {datetime.fromtimestamp(self.start_time/1000, timezone.utc)}")
 
             if not await self.login_with_retry():
-                logger.error("❌ Failed to login after all retries")
+                logger.error("Failed to login after all retries")
                 return
             
             if not await self.init_olm():

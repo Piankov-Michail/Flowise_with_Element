@@ -2,10 +2,11 @@ server_name: "matrix.local"
 pid_file: /data/homeserver.pid
 
 # Публичный URL для клиентов (важно для работы из локальной сети)
-public_baseurl: "http://192.168.0.0:8008/"  # Замените на IP вашего сервера в локальной сети
+public_baseurl: "http://192.168.0.2:8008/"  # Замените на IP вашего сервера в локальной сети
 
 listeners:
   - port: 8008
+    bind_addresses: ['::', '0.0.0.0']
     type: http
     tls: false
     resources:
@@ -22,6 +23,14 @@ enable_registration: true
 enable_registration_without_verification: true
 registrations_require_3pid: []
 allow_guest_access: true
+
+oidc_providers: []
+
+password_config:
+  enabled: true
+  localdb_enabled: true
+
+enable_3pid_lookup: false
 
 # Секрет для регистрации пользователей через CLI
 registration_shared_secret: "flowise_training_secret_2025"

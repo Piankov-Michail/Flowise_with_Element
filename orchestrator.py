@@ -34,6 +34,21 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.getenv('ORCHESTRATOR_WEB_CLIENT_SECRET', 'default_secret_1111111')
 
+import time
+
+def wait_for_db(max_retries=30, delay=2):
+    for attempt in range(max_retries):
+        try:
+            conn = get_db_connection()
+            conn.close()
+            logger.info("✅ Database connection successful")
+            return True
+        except psycopg2.OperationalError as e:
+            logger.warning(f"⚠️ Database not ready (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(delay)
+    return False
+
 try:
     docker_client = docker.from_env()
     logger.info("Docker client initialized successfully")
@@ -671,8 +686,19 @@ def get_bot_logs(bot_id):
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
+
+    if not wait_for_db():
+        logger.error("❌ Failed to connect to database after multiple attempts. Exiting.")
+        sys.exit(1)
+
     init_db()
     
     start_cleanup_scheduler()
 
-    app.run(host='0.0.0.0', port=8001, debug=True)
+    host = os.getenv('ORCHESTRATOR_HOST', '0.0.0.0')
+    port = int(os.getenv('ORCHESTRATOR_PORT', 8001))
+
+    logger.info(f"🚀 Starting orchestrator on {host}:{port}")
+    logger.info(f"📡 Public URL: {ORCHESTRATOR_PUBLIC_URL}")
+
+    app.run(host=host, port=port, debug=True)

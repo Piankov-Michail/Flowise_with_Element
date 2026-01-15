@@ -37,6 +37,21 @@ docker exec -it ollama ollama run gpt-oss:20b-cloud
 ### Import this [Chatflow](https://github.com/Piankov-Michail/Flowise_with_Element/blob/main/Example_Chatflow.json)
 <br>
 
+## RAG (for !rag command using)
+### Launch postgres (vector extension) for flowise to keep embeddings
+```shell
+docker run --name flowise-postgres --network matrix-network -e POSTGRES_PASSWORD=mysecretpassword -p 5432:5432 -d pgvector/pgvector:pg17
+```
+### Launch embeddings model in ollama
+```shell
+docker exec -it ollama ollama pull mxbai-embed-large
+```
+### Import this [Chatflow]()
+### Otionally to see embeddings launch pgadmin
+```shell
+docker run --name flowise-pgadmin --network=matrix-network -p 8080:80 -e "PGADMIN_DEFAULT_EMAIL=admin@admin.com" -e "PGADMIN_DEFAULT_PASSWORD=admin" -d dpage/pgadmin4
+```
+
 ## Open Orchestrator Web client in http://${SERVER_HOST}:8001
 ### Set up your Element user
 ### Set up bot Element user

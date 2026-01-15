@@ -960,7 +960,7 @@
                 
                 if (response.ok && result.success) {
                     // Показать логи в модальном окне или алерте
-                    alert(`Логи бота #${botId}:\n\n${result.logs}`);
+                    showLogsModal(botId, result.logs);
                 } else {
                     showNotification(result.error || 'Ошибка при получении логов', false);
                 }
@@ -968,6 +968,97 @@
                 showNotification('Ошибка сети: ' + error.message, false);
                 console.error('Network error:', error);
             }
+        }
+
+        function showLogsModal(botId, logs) {
+            // Удаляем старое модальное окно, если существует
+            const existingModal = document.getElementById('logs-modal');
+            if (existingModal) existingModal.remove();
+
+            // Создаем оверлей
+            const modalOverlay = document.createElement('div');
+            modalOverlay.id = 'logs-modal';
+            modalOverlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            `;
+
+            // Создаем контент модального окна
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = `
+                background: #1e1e1e;
+                color: #f8f8f2;
+                width: 90%;
+                max-width: 1000px;
+                max-height: 90vh;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 5px 25px rgba(0, 0, 0, 0.8);
+                display: flex;
+                flex-direction: column;
+            `;
+
+            // Заголовок
+            const modalHeader = document.createElement('div');
+            modalHeader.innerHTML = `<h3 style="margin: 0; padding: 15px; background: #252526; border-bottom: 1px solid #3e3e42;">
+                Логи бота #${botId} 
+                <button id="close-modal" style="
+                    float: right;
+                    background: #3e3e42;
+                    border: none;
+                    color: #ccc;
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-weight: bold;
+                ">×</button>
+            </h3>`;
+
+            // Область с логами (со скроллом)
+            const logsContainer = document.createElement('pre');
+            logsContainer.textContent = logs;
+            logsContainer.style.cssText = `
+                flex: 1;
+                padding: 15px;
+                margin: 0;
+                overflow: auto;
+                font-family: 'Fira Code', monospace;
+                font-size: 14px;
+                line-height: 1.5;
+                white-space: pre-wrap;
+                background: #1a1a1a;
+                border: none;
+                color: #ccc;
+            `;
+
+            // Собираем модальное окно
+            modalContent.appendChild(modalHeader);
+            modalContent.appendChild(logsContainer);
+            modalOverlay.appendChild(modalContent);
+            document.body.appendChild(modalOverlay);
+
+            // Обработчики закрытия
+            document.getElementById('close-modal').addEventListener('click', () => {
+                modalOverlay.remove();
+            });
+            
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) modalOverlay.remove();
+            });
+            
+            // Закрытие по клавише Esc
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') modalOverlay.remove();
+            }, { once: true });
         }
 
         // Автоматическая загрузка ботов при загрузке страницы

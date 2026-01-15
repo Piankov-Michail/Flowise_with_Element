@@ -11,6 +11,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - matrix_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   synapse:
     image: matrixdotorg/synapse:latest
@@ -49,8 +55,10 @@ services:
       - SYNAPSE_INTERNAL_URL=${SYNAPSE_INTERNAL_URL}
       - ORCHESTRATOR_PUBLIC_URL=${ORCHESTRATOR_PUBLIC_URL}
     depends_on:
-      - postgres
-      - synapse
+      postgres:
+        condition: service_healthy
+      synapse:
+        condition: service_started
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
@@ -63,3 +71,4 @@ volumes:
 networks:
   matrix_network:
     driver: bridge
+    name: matrix-network
