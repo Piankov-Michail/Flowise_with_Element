@@ -40,6 +40,8 @@ MIME_TO_EXTENSION = {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
 }
 
+EXTENSION_TO_MIME = {ext: mime for mime, ext in MIME_TO_EXTENSION.items()}
+
 class FlowiseBot:
     def __init__(self, homeserver, user_id, password, flowise_url):
         self.homeserver = homeserver
@@ -236,6 +238,38 @@ class FlowiseBot:
             traceback.print_exc()
             return None
 
+    @staticmethod
+    def detect_mime_type(event, file_name: str, logger) -> tuple[str, int, str]:
+        mime_type = 'application/octet-stream'
+        file_size = 0
+        method = "unknown"
+
+        if hasattr(event, 'file') and event.file:
+            if hasattr(event.file, 'mimetype') and event.file.mimetype:
+                mime_type = event.file.mimetype
+                method = "event.file.mimetype"
+            if hasattr(event.file, 'size'):
+                file_size = event.file.size
+
+        if mime_type == 'application/octet-stream' and hasattr(event, 'source'):
+            source_content = event.source.get('content', {})
+            info = source_content.get('info', {}) if isinstance(source_content, dict) else {}
+            if isinstance(info, dict):
+                if info.get('mimetype'):
+                    mime_type = info['mimetype']
+                    method = "source.info.mimetype"
+                if info.get('size'):
+                    file_size = info['size']
+
+        if mime_type == 'application/octet-stream' and '.' in file_name:
+            ext = '.' + file_name.split('.')[-1].lower()
+            if ext in EXTENSION_TO_MIME:
+                mime_type = EXTENSION_TO_MIME[ext]
+                method = f"extension_fallback:{ext}"
+                logger.info(f"🔄 MIME determined from extension: {ext} → {mime_type}")
+        
+        return mime_type, file_size, method
+
     async def on_file(self, room: MatrixRoom, event: RoomMessageFile) -> None:
         if event.sender == self.client.user_id:
             return
@@ -247,27 +281,15 @@ class FlowiseBot:
         
         try:
             file_name = event.body or 'file'
+            original_name = file_name
 
-            mime_type = 'application/octet-stream'
-            file_size = 0
-
-            if hasattr(event, 'file') and event.file:
-                if hasattr(event.file, 'mimetype') and event.file.mimetype:
-                    mime_type = event.file.mimetype
-                if hasattr(event.file, 'size'):
-                    file_size = event.file.size
-
-            if mime_type == 'application/octet-stream' and hasattr(event, 'source'):
-                source_content = event.source.get('content', {})
-                if 'info' in source_content and 'mimetype' in source_content['info']:
-                    mime_type = source_content['info']['mimetype']
-                if 'info' in source_content and 'size' in source_content['info']:
-                    file_size = source_content['info']['size']
+            mime_type, file_size, detection_method = self.detect_mime_type(event, file_name, logger)
 
             if '.' not in file_name and mime_type in MIME_TO_EXTENSION:
                 file_name += MIME_TO_EXTENSION[mime_type]
+                logger.debug(f"✏️ Added extension: {file_name}")
                 
-            logger.info(f"📦 File info: {file_name} ({mime_type}), {file_size} bytes")
+            logger.info(f"📦 File: '{original_name}' → '{file_name}' | MIME: {mime_type} | Size: {file_size}B | Method: {detection_method}")
 
             supported_types = list(MIME_TO_EXTENSION.keys())
         
@@ -381,10 +403,6 @@ class FlowiseBot:
                         mime_type=file_info['mime'],
                         chat_id=session_id
                     )
-                    
-                    max_text_length = 120000  # ~8K токенов
-                    if len(extracted_text) > max_text_length:
-                        extracted_text = extracted_text[:max_text_length] + "\n... (текст обрезан из-за ограничения длины)"
                     
                     payload["question"] = (
                         f"Вопрос: {event.body}\n\n"
